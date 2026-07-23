@@ -8,6 +8,9 @@ pub struct Cli {
     #[arg(long, global = true, value_name = "FILE")]
     pub config: Option<PathBuf>,
 
+    #[arg(long, global = true, value_name = "NAME")]
+    pub default_branch: Option<String>,
+
     #[command(subcommand)]
     pub command: Command,
 }
