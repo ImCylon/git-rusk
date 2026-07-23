@@ -643,4 +643,77 @@ mod tests {
             panic!("expected BodyTooShort error");
         }
     }
+
+    #[test]
+    fn test_footer_fixes_accepted() {
+        let msg = "feat(auth): add login\n\nDescription: Adds login screen.\n\nFixes #123";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_footer_refs_accepted() {
+        let msg = "feat(auth): add login\n\nDescription: Adds login screen.\n\nRefs #456";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_footer_co_authored_by_accepted() {
+        let msg = "feat(auth): add login\n\nDescription: Adds login screen.\n\nCo-authored-by: Jane <jane@example.com>";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_footer_breaking_change_accepted() {
+        let msg = "feat(auth)!: redesign\n\nDescription: Redesigns login flow.\n\nBREAKING CHANGE: old API removed.";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_footer_breaking_change_hyphen_synonym() {
+        let msg = "feat(auth)!: redesign\n\nDescription: Redesigns login flow.\n\nBREAKING-CHANGE: old API removed.";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_footer_multiple_accepted() {
+        let msg = "feat(auth): add login\n\nDescription: Adds login screen.\n\nFixes #123\nRefs #456\nCo-authored-by: Jane <jane@example.com>";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_footer_unknown_accepted() {
+        let msg = "feat(auth): add login\n\nDescription: Adds login screen.\n\nReviewed-by: Bob <bob@example.com>";
+        assert!(
+            validate(msg, &test_config()).is_ok(),
+            "unknown footers should be accepted, not rejected"
+        );
+    }
+
+    #[test]
+    fn test_footer_text_not_counted_toward_body_length() {
+        let msg = "feat(auth): add login\n\nDescription: Short.\n\nFixes #123";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let too_short = errors
+            .iter()
+            .find(|e| matches!(e, ValidationError::BodyTooShort { .. }));
+        assert!(
+            too_short.is_some(),
+            "footer text should not satisfy min_body_length"
+        );
+        if let Some(ValidationError::BodyTooShort { actual, .. }) = too_short {
+            assert_eq!(*actual, 6, "'Short.' is 6 chars; Fixes #123 excluded");
+        }
+    }
+
+    #[test]
+    fn test_footer_only_body_with_no_description_rejected() {
+        let msg = "feat(auth): add login\n\nFixes #123\nCo-authored-by: Jane <jane@example.com>";
+        let result = validate(msg, &test_config());
+        assert!(
+            result.is_err(),
+            "footer-only body with no Description: must be rejected"
+        );
+    }
 }
