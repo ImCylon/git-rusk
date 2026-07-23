@@ -420,4 +420,131 @@ require_for_commit = true
         let tc = TotpConfig::default();
         assert_eq!(tc.backward_tolerance_secs, 120);
     }
+
+    #[test]
+    fn test_load_valid_full_toml() {
+        let toml_content = r#"
+[branches]
+allowed = ["dev"]
+protected = ["main"]
+default_branch = "dev"
+
+[commit]
+types = ["feat"]
+scopes = "all"
+min_body_length = 20
+
+[totp]
+require_for_commit = true
+require_for_branch_switch = false
+step_seconds = 30
+backward_tolerance_secs = 60
+"#;
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), toml_content).unwrap();
+        let config = Config::load(Some(tmp.path())).unwrap();
+        assert_eq!(config.branches.allowed, vec!["dev".to_string()]);
+        assert_eq!(config.branches.protected, vec!["main".to_string()]);
+        assert_eq!(config.branches.default_branch, "dev");
+        assert_eq!(
+            config.commit.types,
+            AllowList::Only(vec!["feat".to_string()])
+        );
+        assert_eq!(config.commit.scopes, AllowList::All);
+        assert_eq!(config.commit.min_body_length, 20);
+        assert!(config.totp.require_for_commit);
+        assert_eq!(config.totp.backward_tolerance_secs, 60);
+    }
+
+    #[test]
+    fn test_load_none_returns_default() {
+        let config = Config::load(None).unwrap();
+        let default = Config::default();
+        assert_eq!(config.branches.allowed, default.branches.allowed);
+        assert_eq!(config.branches.default_branch, default.branches.default_branch);
+        assert_eq!(config.commit.min_body_length, default.commit.min_body_length);
+        assert_eq!(config.totp.step_seconds, default.totp.step_seconds);
+    }
+
+    #[test]
+    fn test_load_nonexistent_file() {
+        let path = std::path::Path::new("/nonexistent/path/.git-hook.toml");
+        let result = Config::load(Some(path));
+        assert!(result.is_err());
+        let msg = format!("{:#}", result.err().unwrap());
+        assert!(
+            msg.contains("/nonexistent/path/.git-hook.toml"),
+            "error message should contain the file path, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_load_invalid_toml() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), "invalid = = toml").unwrap();
+        let result = Config::load(Some(tmp.path()));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_partial_toml() {
+        let toml_content = r#"
+[branches]
+allowed = ["dev"]
+"#;
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), toml_content).unwrap();
+        let config = Config::load(Some(tmp.path())).unwrap();
+        assert_eq!(config.branches.allowed, vec!["dev".to_string()]);
+        assert_eq!(
+            config.branches.protected,
+            BranchConfig::default().protected
+        );
+        assert_eq!(
+            config.branches.default_branch,
+            BranchConfig::default().default_branch
+        );
+        assert_eq!(config.commit.types, CommitConfig::default().types);
+        assert_eq!(config.commit.scopes, CommitConfig::default().scopes);
+        assert_eq!(
+            config.totp.step_seconds,
+            TotpConfig::default().step_seconds
+        );
+    }
+
+    #[test]
+    fn test_load_empty_toml() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), "").unwrap();
+        let config = Config::load(Some(tmp.path())).unwrap();
+        let default = Config::default();
+        assert_eq!(config.branches.allowed, default.branches.allowed);
+        assert_eq!(
+            config.branches.default_branch,
+            default.branches.default_branch
+        );
+        assert_eq!(
+            config.commit.min_body_length,
+            default.commit.min_body_length
+        );
+        assert_eq!(config.totp.step_seconds, default.totp.step_seconds);
+    }
+
+    #[test]
+    fn test_load_none_cwd_auto_discovery() {
+        let original_dir = std::env::current_dir().unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let config_path = tmp_dir.path().join(".git-hook.toml");
+        let toml_content = r#"
+[branches]
+allowed = ["feature"]
+default_branch = "feature"
+"#;
+        std::fs::write(&config_path, toml_content).unwrap();
+        std::env::set_current_dir(tmp_dir.path()).unwrap();
+        let config = Config::load(None).unwrap();
+        assert_eq!(config.branches.allowed, vec!["feature".to_string()]);
+        assert_eq!(config.branches.default_branch, "feature");
+        std::env::set_current_dir(&original_dir).unwrap();
+    }
 }
