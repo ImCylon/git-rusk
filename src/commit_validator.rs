@@ -287,6 +287,53 @@ mod tests {
     }
 
     #[test]
+    fn test_valid_header_with_all_types_passes() {
+        let config = CommitConfig {
+            types: AllowList::All,
+            ..test_config()
+        };
+        let msg = "customtype(api): test\n\nDescription: Tests custom type.";
+        assert!(validate(msg, &config).is_ok());
+    }
+
+    #[test]
+    fn test_invalid_type_rejected() {
+        let msg = "unknown(scope): desc\n\nDescription: Some description.";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidType { .. })));
+    }
+
+    #[test]
+    fn test_invalid_scope_rejected() {
+        let config = CommitConfig {
+            scopes: AllowList::Only(vec!["auth".into()]),
+            ..test_config()
+        };
+        let msg = "feat(unknown): desc\n\nDescription: Some description.";
+        let result = validate(msg, &config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidScope { .. })));
+    }
+
+    #[test]
+    fn test_missing_scope_rejected() {
+        let msg = "feat: add login\n\nDescription: Adds login screen.";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::MissingScope)));
+    }
+
+    #[test]
     fn test_invalid_header_rejected() {
         let msg = "bad header";
         let result = validate(msg, &test_config());
@@ -295,5 +342,148 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| matches!(e, ValidationError::InvalidHeader { .. })));
+    }
+
+    #[test]
+    fn test_header_without_colon_space_rejected() {
+        let msg = "feat(auth) add login";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidHeader { .. })));
+    }
+
+    #[test]
+    fn test_breaking_change_marker_accepted() {
+        let msg = "feat(auth)!: redesign login\n\nDescription: Redesigns login.";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_type_case_insensitive_uppercase() {
+        let config = CommitConfig {
+            types: AllowList::Only(vec!["feat".into()]),
+            scopes: AllowList::Only(vec!["auth".into()]),
+            min_body_length: 10,
+        };
+        let msg = "FEAT(auth): test\n\nDescription: Tests the feature.";
+        assert!(validate(msg, &config).is_ok());
+    }
+
+    #[test]
+    fn test_type_and_scope_case_insensitive_mixed() {
+        let config = CommitConfig {
+            types: AllowList::Only(vec!["feat".into()]),
+            scopes: AllowList::Only(vec!["auth".into()]),
+            min_body_length: 10,
+        };
+        let msg = "Feat(Auth): test\n\nDescription: Tests the feature.";
+        assert!(validate(msg, &config).is_ok());
+    }
+
+    #[test]
+    fn test_scope_case_insensitive_uppercase() {
+        let config = CommitConfig {
+            types: AllowList::Only(vec!["feat".into()]),
+            scopes: AllowList::Only(vec!["auth".into()]),
+            min_body_length: 10,
+        };
+        let msg = "feat(AUTH): test\n\nDescription: Tests the feature.";
+        assert!(validate(msg, &config).is_ok());
+    }
+
+    #[test]
+    fn test_merge_branch_exempt() {
+        let msg = "Merge branch 'feature' into development";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_merge_pull_request_exempt() {
+        let msg = "Merge pull request #123 from user/branch";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_revert_commit_exempt() {
+        let msg = "Revert \"feat(auth): add login\"";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_fixup_commit_exempt() {
+        let msg = "fixup! feat(auth): add login";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_squash_commit_exempt() {
+        let msg = "squash! feat(auth): add login";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_amend_commit_exempt() {
+        let msg = "amend! feat(auth): add login";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_non_exempt_merge_prefix_not_bypassed() {
+        let msg = "Mergeable: thing\n\nDescription: Something happened.";
+        let result = validate(msg, &test_config());
+        assert!(
+            result.is_err(),
+            "Mergeable (without space after Merge) should NOT be exempt"
+        );
+    }
+
+    #[test]
+    fn test_missing_body_rejected() {
+        let msg = "feat(auth): test";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::MissingBody { .. })));
+    }
+
+    #[test]
+    fn test_body_without_description_prefix_rejected() {
+        let msg = "feat(auth): add login\n\nThis is a body without prefix.";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| e == &ValidationError::BodyMissingDescriptionPrefix));
+    }
+
+    #[test]
+    fn test_multiple_errors_returned_at_once() {
+        let config = CommitConfig {
+            types: AllowList::Only(vec!["feat".into()]),
+            scopes: AllowList::Only(vec!["auth".into()]),
+            min_body_length: 10,
+        };
+        let msg = "badtype(badscope): desc\n\nDescription: Some valid body.";
+        let result = validate(msg, &config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(
+            errors.len() >= 2,
+            "expected at least 2 errors, got {}: {:?}",
+            errors.len(),
+            errors
+        );
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidType { .. })));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidScope { .. })));
     }
 }
