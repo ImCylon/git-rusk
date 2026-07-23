@@ -165,8 +165,34 @@ impl AllowList {
 }
 
 impl Config {
-    pub fn load(_config_path: Option<&Path>) -> Result<Self> {
-        Ok(Config::default())
+    pub fn load(config_path: Option<&Path>) -> Result<Self> {
+        match config_path {
+            Some(path) => Self::load_from_path(path),
+            None => {
+                let cwd_path = Path::new(".git-hook.toml");
+                if cwd_path.exists() {
+                    Self::load_from_path(cwd_path)
+                } else {
+                    Ok(Config::default())
+                }
+            }
+        }
+    }
+
+    fn load_from_path(path: &Path) -> Result<Self> {
+        let contents = std::fs::read_to_string(path).map_err(|source| {
+            crate::error::GitHookError::ConfigFileRead {
+                path: path.display().to_string(),
+                source,
+            }
+        })?;
+        toml::from_str::<Config>(&contents).map_err(|e| {
+            crate::error::GitHookError::ConfigFileParse {
+                path: path.display().to_string(),
+                message: e.to_string(),
+            }
+            .into()
+        })
     }
 }
 
