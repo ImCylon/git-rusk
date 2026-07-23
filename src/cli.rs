@@ -3,7 +3,11 @@ use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
-#[command(name = "git-hook", version, about = "Git hook manager with branch protection + TOTP")]
+#[command(
+    name = "git-hook",
+    version,
+    about = "Git hook manager with branch protection + TOTP"
+)]
 pub struct Cli {
     #[arg(long, global = true, value_name = "FILE")]
     pub config: Option<PathBuf>,

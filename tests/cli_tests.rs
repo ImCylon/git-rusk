@@ -44,18 +44,12 @@ fn version_shows_binary_name() {
 
 #[test]
 fn init_with_defaults_exits_zero() {
-    bin()
-        .arg("init")
-        .assert()
-        .success();
+    bin().arg("init").assert().success();
 }
 
 #[test]
 fn install_hooks_with_defaults_exits_zero() {
-    bin()
-        .arg("install-hooks")
-        .assert()
-        .success();
+    bin().arg("install-hooks").assert().success();
 }
 
 #[test]

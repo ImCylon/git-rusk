@@ -10,10 +10,7 @@ fn verify_cli() {
 #[test]
 fn verify_subcommands() {
     let cmd = Cli::command();
-    let subcommands: Vec<&str> = cmd
-        .get_subcommands()
-        .map(|s| s.get_name())
-        .collect();
+    let subcommands: Vec<&str> = cmd.get_subcommands().map(|s| s.get_name()).collect();
 
     assert!(
         subcommands.contains(&"init"),

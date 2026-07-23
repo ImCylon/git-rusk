@@ -3,22 +3,12 @@ use std::path::Path;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[serde(default)]
 pub struct Config {
     pub branches: BranchConfig,
     pub commit: CommitConfig,
     pub totp: TotpConfig,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            branches: BranchConfig::default(),
-            commit: CommitConfig::default(),
-            totp: TotpConfig::default(),
-        }
-    }
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -125,10 +115,7 @@ impl<'de> serde::Deserialize<'de> for StringOrVec {
                 Ok(StringOrVec::Str(v.to_string()))
             }
 
-            fn visit_seq<A: de::SeqAccess<'de>>(
-                self,
-                mut seq: A,
-            ) -> Result<Self::Value, A::Error> {
+            fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
                 let mut list = Vec::new();
                 while let Some(item) = seq.next_element()? {
                     list.push(item);
@@ -305,10 +292,16 @@ backward_tolerance_secs = 60
         let default = Config::default();
         assert_eq!(config.branches.allowed, default.branches.allowed);
         assert_eq!(config.branches.protected, default.branches.protected);
-        assert_eq!(config.branches.default_branch, default.branches.default_branch);
+        assert_eq!(
+            config.branches.default_branch,
+            default.branches.default_branch
+        );
         assert_eq!(config.commit.types, default.commit.types);
         assert_eq!(config.commit.scopes, default.commit.scopes);
-        assert_eq!(config.commit.min_body_length, default.commit.min_body_length);
+        assert_eq!(
+            config.commit.min_body_length,
+            default.commit.min_body_length
+        );
         assert_eq!(
             config.totp.require_for_commit,
             default.totp.require_for_commit
@@ -332,10 +325,7 @@ allowed = ["dev"]
 "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.branches.allowed, vec!["dev".to_string()]);
-        assert_eq!(
-            config.branches.protected,
-            BranchConfig::default().protected
-        );
+        assert_eq!(config.branches.protected, BranchConfig::default().protected);
         assert_eq!(
             config.branches.default_branch,
             BranchConfig::default().default_branch
@@ -346,10 +336,7 @@ allowed = ["dev"]
             config.commit.min_body_length,
             CommitConfig::default().min_body_length
         );
-        assert_eq!(
-            config.totp.step_seconds,
-            TotpConfig::default().step_seconds
-        );
+        assert_eq!(config.totp.step_seconds, TotpConfig::default().step_seconds);
     }
 
     #[test]
@@ -359,19 +346,13 @@ allowed = ["dev"]
 types = ["feat"]
 "#;
         let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(
-            config.branches.allowed,
-            BranchConfig::default().allowed
-        );
+        assert_eq!(config.branches.allowed, BranchConfig::default().allowed);
         assert_eq!(
             config.commit.types,
             AllowList::Only(vec!["feat".to_string()])
         );
         assert_eq!(config.commit.scopes, CommitConfig::default().scopes);
-        assert_eq!(
-            config.totp.step_seconds,
-            TotpConfig::default().step_seconds
-        );
+        assert_eq!(config.totp.step_seconds, TotpConfig::default().step_seconds);
     }
 
     #[test]
@@ -381,10 +362,7 @@ types = ["feat"]
 require_for_commit = true
 "#;
         let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(
-            config.branches.allowed,
-            BranchConfig::default().allowed
-        );
+        assert_eq!(config.branches.allowed, BranchConfig::default().allowed);
         assert_eq!(config.commit.types, CommitConfig::default().types);
         assert!(config.totp.require_for_commit);
         assert_eq!(
@@ -402,7 +380,10 @@ require_for_commit = true
     #[test]
     fn test_branch_config_default_protected() {
         let bc = BranchConfig::default();
-        assert_eq!(bc.protected, vec!["main".to_string(), "release".to_string()]);
+        assert_eq!(
+            bc.protected,
+            vec!["main".to_string(), "release".to_string()]
+        );
     }
 
     #[test]
@@ -487,8 +468,14 @@ backward_tolerance_secs = 60
         let config = Config::load(None).unwrap();
         let default = Config::default();
         assert_eq!(config.branches.allowed, default.branches.allowed);
-        assert_eq!(config.branches.default_branch, default.branches.default_branch);
-        assert_eq!(config.commit.min_body_length, default.commit.min_body_length);
+        assert_eq!(
+            config.branches.default_branch,
+            default.branches.default_branch
+        );
+        assert_eq!(
+            config.commit.min_body_length,
+            default.commit.min_body_length
+        );
         assert_eq!(config.totp.step_seconds, default.totp.step_seconds);
     }
 
@@ -522,20 +509,14 @@ allowed = ["dev"]
         std::fs::write(tmp.path(), toml_content).unwrap();
         let config = Config::load(Some(tmp.path())).unwrap();
         assert_eq!(config.branches.allowed, vec!["dev".to_string()]);
-        assert_eq!(
-            config.branches.protected,
-            BranchConfig::default().protected
-        );
+        assert_eq!(config.branches.protected, BranchConfig::default().protected);
         assert_eq!(
             config.branches.default_branch,
             BranchConfig::default().default_branch
         );
         assert_eq!(config.commit.types, CommitConfig::default().types);
         assert_eq!(config.commit.scopes, CommitConfig::default().scopes);
-        assert_eq!(
-            config.totp.step_seconds,
-            TotpConfig::default().step_seconds
-        );
+        assert_eq!(config.totp.step_seconds, TotpConfig::default().step_seconds);
     }
 
     #[test]
