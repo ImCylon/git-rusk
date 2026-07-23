@@ -17,6 +17,22 @@ pub enum GitHookError {
 
     #[error("Invalid configuration value: {0}")]
     InvalidConfig(String),
+
+    #[error("Git operation failed: {0}")]
+    GitOperation(String),
+
+    #[error("Git is not installed or not on PATH")]
+    GitNotFound,
+
+    #[error("Failed to write file {path}: {source}")]
+    FileWrite {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("Template not found: {0}")]
+    TemplateNotFound(String),
 }
 
 impl GitHookError {
@@ -25,7 +41,11 @@ impl GitHookError {
             GitHookError::Config(_)
             | GitHookError::ConfigFileRead { .. }
             | GitHookError::ConfigFileParse { .. }
-            | GitHookError::InvalidConfig(_) => 1,
+            | GitHookError::InvalidConfig(_)
+            | GitHookError::GitOperation(_)
+            | GitHookError::GitNotFound
+            | GitHookError::FileWrite { .. }
+            | GitHookError::TemplateNotFound(_) => 1,
         }
     }
 }

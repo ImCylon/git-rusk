@@ -3,6 +3,7 @@ pub mod commands;
 pub mod commit_validator;
 pub mod config;
 pub mod error;
+pub mod git_ops;
 
 use anyhow::Result;
 use cli::Cli;
@@ -32,13 +33,15 @@ mod tests {
 
     #[test]
     fn test_run_config_none_no_error() {
-        let cli = Cli::parse_from(["git-rusk", "init"]);
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let cli = Cli::parse_from(["git-rusk", "init", tmp_dir.path().to_str().unwrap()]);
         let result = run(cli);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_run_config_valid_path() {
+        let tmp_dir = tempfile::tempdir().unwrap();
         let toml_content = r#"
 [branches]
 allowed = ["dev"]
@@ -46,7 +49,13 @@ default_branch = "dev"
 "#;
         let tmp = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(tmp.path(), toml_content).unwrap();
-        let cli = Cli::parse_from(["git-rusk", "--config", tmp.path().to_str().unwrap(), "init"]);
+        let cli = Cli::parse_from([
+            "git-rusk",
+            "--config",
+            tmp.path().to_str().unwrap(),
+            "init",
+            tmp_dir.path().to_str().unwrap(),
+        ]);
         let result = run(cli);
         assert!(result.is_ok());
     }

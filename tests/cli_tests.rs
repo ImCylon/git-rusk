@@ -116,18 +116,22 @@ fn help_contains_description_text() {
 
 #[test]
 fn default_branch_override_exits_zero() {
+    let tmp_dir = tempfile::tempdir().unwrap();
     bin()
         .arg("--default-branch")
-        .arg("feature")
+        .arg("main")
         .arg("init")
+        .arg(tmp_dir.path().to_str().unwrap())
         .assert()
         .success();
 }
 
 #[test]
 fn default_branch_cli_overrides_toml_exits_zero() {
+    let tmp_dir = tempfile::tempdir().unwrap();
     let toml_content = r#"
 [branches]
+allowed = ["development", "feature"]
 default_branch = "dev"
 "#;
     let tmp = NamedTempFile::new().unwrap();
@@ -139,6 +143,7 @@ default_branch = "dev"
         .arg("--default-branch")
         .arg("feature")
         .arg("init")
+        .arg(tmp_dir.path().to_str().unwrap())
         .assert()
         .success();
 }
