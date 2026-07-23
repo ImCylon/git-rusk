@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod commands;
+pub mod commit_validator;
 pub mod config;
 pub mod error;
 
