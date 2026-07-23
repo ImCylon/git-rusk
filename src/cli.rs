@@ -4,12 +4,12 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
 #[command(
-    name = "git-hook",
+    name = "git-rusk",
     version,
     about = "Git hook manager with branch protection + TOTP"
 )]
 pub struct Cli {
-    /// Path to a .git-hook.toml config file (default: auto-discover in CWD)
+    /// Path to a .git-rusk.toml config file (default: auto-discover in CWD)
     #[arg(long, global = true, value_name = "FILE")]
     pub config: Option<PathBuf>,
 

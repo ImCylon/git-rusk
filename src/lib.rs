@@ -32,7 +32,7 @@ mod tests {
 
     #[test]
     fn test_run_config_none_no_error() {
-        let cli = Cli::parse_from(["git-hook", "init"]);
+        let cli = Cli::parse_from(["git-rusk", "init"]);
         let result = run(cli);
         assert!(result.is_ok());
     }
@@ -46,28 +46,28 @@ default_branch = "dev"
 "#;
         let tmp = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(tmp.path(), toml_content).unwrap();
-        let cli = Cli::parse_from(["git-hook", "--config", tmp.path().to_str().unwrap(), "init"]);
+        let cli = Cli::parse_from(["git-rusk", "--config", tmp.path().to_str().unwrap(), "init"]);
         let result = run(cli);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_run_config_nonexistent_path_errors() {
-        let cli = Cli::parse_from(["git-hook", "--config", "/nonexistent/path.toml", "init"]);
+        let cli = Cli::parse_from(["git-rusk", "--config", "/nonexistent/path.toml", "init"]);
         let result = run(cli);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_resolve_config_default_branch_override() {
-        let cli = Cli::parse_from(["git-hook", "--default-branch", "feature", "init"]);
+        let cli = Cli::parse_from(["git-rusk", "--default-branch", "feature", "init"]);
         let config = resolve_config(&cli).unwrap();
         assert_eq!(config.branches.default_branch, "feature");
     }
 
     #[test]
     fn test_resolve_config_no_override_uses_default() {
-        let cli = Cli::parse_from(["git-hook", "init"]);
+        let cli = Cli::parse_from(["git-rusk", "init"]);
         let config = resolve_config(&cli).unwrap();
         assert_eq!(config.branches.default_branch, "development");
     }
@@ -82,7 +82,7 @@ default_branch = "development"
         std::fs::write(tmp.path(), toml_content).unwrap();
         let config_path = tmp.path().to_str().unwrap();
         let cli = Cli::parse_from([
-            "git-hook",
+            "git-rusk",
             "--config",
             config_path,
             "--default-branch",
@@ -102,7 +102,7 @@ default_branch = "staging"
         let tmp = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(tmp.path(), toml_content).unwrap();
         let config_path = tmp.path().to_str().unwrap();
-        let cli = Cli::parse_from(["git-hook", "--config", config_path, "init"]);
+        let cli = Cli::parse_from(["git-rusk", "--config", config_path, "init"]);
         let config = resolve_config(&cli).unwrap();
         assert_eq!(config.branches.default_branch, "staging");
     }

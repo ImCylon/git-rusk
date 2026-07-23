@@ -3,7 +3,7 @@ use predicates::str::contains;
 use tempfile::NamedTempFile;
 
 fn bin() -> Command {
-    Command::cargo_bin("git-hook").unwrap()
+    Command::cargo_bin("git-rusk").unwrap()
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn version_shows_binary_name() {
         .arg("--version")
         .assert()
         .success()
-        .stdout(contains("git-hook"));
+        .stdout(contains("git-rusk"));
 }
 
 #[test]

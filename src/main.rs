@@ -2,11 +2,11 @@ use std::process::ExitCode;
 
 use clap::Parser;
 
-use git_hook::cli::Cli;
+use git_rusk::cli::Cli;
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    match git_hook::run(cli) {
+    match git_rusk::run(cli) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("Error: {e:#}");

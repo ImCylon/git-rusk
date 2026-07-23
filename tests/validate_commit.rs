@@ -1,5 +1,5 @@
-use git_hook::commit_validator::{validate, ValidationError};
-use git_hook::config::{AllowList, CommitConfig};
+use git_rusk::commit_validator::{validate, ValidationError};
+use git_rusk::config::{AllowList, CommitConfig};
 
 fn default_config() -> CommitConfig {
     CommitConfig {

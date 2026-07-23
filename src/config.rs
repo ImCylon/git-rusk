@@ -156,7 +156,7 @@ impl Config {
         match config_path {
             Some(path) => Self::load_from_path(path),
             None => {
-                let cwd_path = Path::new(".git-hook.toml");
+                let cwd_path = Path::new(".git-rusk.toml");
                 if cwd_path.exists() {
                     Self::load_from_path(cwd_path)
                 } else {
@@ -481,12 +481,12 @@ backward_tolerance_secs = 60
 
     #[test]
     fn test_load_nonexistent_file() {
-        let path = std::path::Path::new("/nonexistent/path/.git-hook.toml");
+        let path = std::path::Path::new("/nonexistent/path/.git-rusk.toml");
         let result = Config::load(Some(path));
         assert!(result.is_err());
         let msg = format!("{:#}", result.err().unwrap());
         assert!(
-            msg.contains("/nonexistent/path/.git-hook.toml"),
+            msg.contains("/nonexistent/path/.git-rusk.toml"),
             "error message should contain the file path, got: {msg}"
         );
     }
@@ -541,7 +541,7 @@ allowed = ["dev"]
     fn test_load_none_cwd_auto_discovery() {
         let original_dir = std::env::current_dir().unwrap();
         let tmp_dir = tempfile::tempdir().unwrap();
-        let config_path = tmp_dir.path().join(".git-hook.toml");
+        let config_path = tmp_dir.path().join(".git-rusk.toml");
         let toml_content = r#"
 [branches]
 allowed = ["feature"]

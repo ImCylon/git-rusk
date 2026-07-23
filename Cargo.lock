@@ -206,7 +206,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "git-hook"
+name = "git-rusk"
 version = "0.1.0"
 dependencies = [
  "anyhow",

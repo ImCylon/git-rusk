@@ -1,5 +1,5 @@
 {
-  description = "git-hook — Rust CLI para proteção de branches com TOTP";
+  description = "git-rusk — Rust CLI para proteção de branches com TOTP";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -9,7 +9,7 @@
       pkgs = import nixpkgs { inherit system; };
     in {
       devShells.${system}.default = pkgs.mkShell {
-        name = "git-hook-dev";
+        name = "git-rusk-dev";
 
         packages = with pkgs; [
           rustc
@@ -23,7 +23,7 @@
         shellHook = ''
           echo ""
           echo "╔══════════════════════════════════════════╗"
-          echo "║  git-hook dev shell ativado              ║"
+          echo "║  git-rusk dev shell ativado              ║"
           echo "║  Rust: $(rustc --version)                 ║"
           echo "╚══════════════════════════════════════════╝"
           echo ""

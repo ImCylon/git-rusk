@@ -1,6 +1,6 @@
 use clap::CommandFactory;
 
-use git_hook::cli::Cli;
+use git_rusk::cli::Cli;
 
 #[test]
 fn verify_cli() {
