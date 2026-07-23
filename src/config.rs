@@ -554,4 +554,117 @@ default_branch = "feature"
         assert_eq!(config.branches.default_branch, "feature");
         std::env::set_current_dir(&original_dir).unwrap();
     }
+
+    #[test]
+    fn test_serialize_allow_list_all() {
+        let cc = CommitConfig {
+            types: AllowList::All,
+            ..Default::default()
+        };
+        let toml_str = toml::to_string(&cc).unwrap();
+        assert!(
+            toml_str.contains("types = \"all\""),
+            "expected types = \"all\", got: {toml_str}"
+        );
+        assert!(
+            !toml_str.contains("\"All\""),
+            "should not contain '\"All\"': {toml_str}"
+        );
+    }
+
+    #[test]
+    fn test_serialize_allow_list_only() {
+        let cc = CommitConfig {
+            types: AllowList::Only(vec!["feat".to_string(), "fix".to_string()]),
+            ..Default::default()
+        };
+        let toml_str = toml::to_string(&cc).unwrap();
+        assert!(
+            toml_str.contains("types = [\"feat\", \"fix\"]"),
+            "expected types = [\"feat\", \"fix\"], got: {toml_str}"
+        );
+    }
+
+    #[test]
+    fn test_serialize_allow_list_empty_only() {
+        let cc = CommitConfig {
+            types: AllowList::Only(vec![]),
+            ..Default::default()
+        };
+        let toml_str = toml::to_string(&cc).unwrap();
+        assert!(
+            toml_str.contains("types = []"),
+            "expected types = [], got: {toml_str}"
+        );
+    }
+
+    #[test]
+    fn test_config_default_round_trip() {
+        let original = Config::default();
+        let serialized = toml::to_string_pretty(&original).unwrap();
+        let deserialized: Config = toml::from_str(&serialized).unwrap();
+        assert_eq!(deserialized.branches.allowed, original.branches.allowed);
+        assert_eq!(
+            deserialized.branches.protected,
+            original.branches.protected
+        );
+        assert_eq!(
+            deserialized.branches.default_branch,
+            original.branches.default_branch
+        );
+        assert_eq!(deserialized.commit.types, original.commit.types);
+        assert_eq!(deserialized.commit.scopes, original.commit.scopes);
+        assert_eq!(
+            deserialized.commit.min_body_length,
+            original.commit.min_body_length
+        );
+        assert_eq!(
+            deserialized.totp.require_for_commit,
+            original.totp.require_for_commit
+        );
+        assert_eq!(
+            deserialized.totp.require_for_branch_switch,
+            original.totp.require_for_branch_switch
+        );
+        assert_eq!(deserialized.totp.step_seconds, original.totp.step_seconds);
+        assert_eq!(
+            deserialized.totp.backward_tolerance_secs,
+            original.totp.backward_tolerance_secs
+        );
+    }
+
+    #[test]
+    fn test_commit_config_types_all_round_trip() {
+        let cc = CommitConfig {
+            types: AllowList::All,
+            ..Default::default()
+        };
+        let serialized = toml::to_string_pretty(&cc).unwrap();
+        let deserialized: CommitConfig = toml::from_str(&serialized).unwrap();
+        assert_eq!(deserialized.types, AllowList::All);
+    }
+
+    #[test]
+    fn test_commit_config_types_only_round_trip() {
+        let cc = CommitConfig {
+            types: AllowList::Only(vec!["custom".to_string()]),
+            ..Default::default()
+        };
+        let serialized = toml::to_string_pretty(&cc).unwrap();
+        let deserialized: CommitConfig = toml::from_str(&serialized).unwrap();
+        assert_eq!(
+            deserialized.types,
+            AllowList::Only(vec!["custom".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_config_default_serialized_contains_types() {
+        let config = Config::default();
+        let serialized = toml::to_string_pretty(&config).unwrap();
+        assert!(
+            serialized.contains("types ="),
+            "serialized config should contain 'types =': {serialized}"
+        );
+    }
 }
