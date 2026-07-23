@@ -85,11 +85,74 @@ impl Default for TotpConfig {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
-#[serde(untagged)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum AllowList {
     All,
     Only(Vec<String>),
+}
+
+impl<'de> serde::Deserialize<'de> for AllowList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserialize_allow_list(deserializer)
+    }
+}
+
+enum StringOrVec {
+    Str(String),
+    Vec(Vec<String>),
+}
+
+impl<'de> serde::Deserialize<'de> for StringOrVec {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de;
+
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = StringOrVec;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a string or array of strings")
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                Ok(StringOrVec::Str(v.to_string()))
+            }
+
+            fn visit_seq<A: de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> Result<Self::Value, A::Error> {
+                let mut list = Vec::new();
+                while let Some(item) = seq.next_element()? {
+                    list.push(item);
+                }
+                Ok(StringOrVec::Vec(list))
+            }
+        }
+
+        deserializer.deserialize_any(Visitor)
+    }
+}
+
+fn deserialize_allow_list<'de, D>(deserializer: D) -> Result<AllowList, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match StringOrVec::deserialize(deserializer)? {
+        StringOrVec::Str(s) if s == "all" => Ok(AllowList::All),
+        StringOrVec::Str(s) => Err(serde::de::Error::custom(format!(
+            "expected \"all\" or an array of strings, got string \"{}\"",
+            s
+        ))),
+        StringOrVec::Vec(v) => Ok(AllowList::Only(v)),
+    }
 }
 
 impl AllowList {
