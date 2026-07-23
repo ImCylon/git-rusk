@@ -237,4 +237,187 @@ mod tests {
         let list = AllowList::Only(vec![]);
         assert!(!list.allows("feat"));
     }
+
+    #[test]
+    fn test_deserialize_full_config() {
+        let toml_str = r#"
+[branches]
+allowed = ["dev"]
+protected = ["main"]
+default_branch = "dev"
+
+[commit]
+types = ["feat"]
+scopes = "all"
+min_body_length = 20
+
+[totp]
+require_for_commit = true
+require_for_branch_switch = false
+step_seconds = 30
+backward_tolerance_secs = 60
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.branches.allowed, vec!["dev".to_string()]);
+        assert_eq!(config.branches.protected, vec!["main".to_string()]);
+        assert_eq!(config.branches.default_branch, "dev");
+        assert_eq!(
+            config.commit.types,
+            AllowList::Only(vec!["feat".to_string()])
+        );
+        assert_eq!(config.commit.scopes, AllowList::All);
+        assert_eq!(config.commit.min_body_length, 20);
+        assert!(config.totp.require_for_commit);
+        assert!(!config.totp.require_for_branch_switch);
+        assert_eq!(config.totp.step_seconds, 30);
+        assert_eq!(config.totp.backward_tolerance_secs, 60);
+    }
+
+    #[test]
+    fn test_deserialize_empty_config() {
+        let config: Config = toml::from_str("").unwrap();
+        let default = Config::default();
+        assert_eq!(config.branches.allowed, default.branches.allowed);
+        assert_eq!(config.branches.protected, default.branches.protected);
+        assert_eq!(config.branches.default_branch, default.branches.default_branch);
+        assert_eq!(config.commit.types, default.commit.types);
+        assert_eq!(config.commit.scopes, default.commit.scopes);
+        assert_eq!(config.commit.min_body_length, default.commit.min_body_length);
+        assert_eq!(
+            config.totp.require_for_commit,
+            default.totp.require_for_commit
+        );
+        assert_eq!(
+            config.totp.require_for_branch_switch,
+            default.totp.require_for_branch_switch
+        );
+        assert_eq!(config.totp.step_seconds, default.totp.step_seconds);
+        assert_eq!(
+            config.totp.backward_tolerance_secs,
+            default.totp.backward_tolerance_secs
+        );
+    }
+
+    #[test]
+    fn test_deserialize_partial_branches_only() {
+        let toml_str = r#"
+[branches]
+allowed = ["dev"]
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.branches.allowed, vec!["dev".to_string()]);
+        assert_eq!(
+            config.branches.protected,
+            BranchConfig::default().protected
+        );
+        assert_eq!(
+            config.branches.default_branch,
+            BranchConfig::default().default_branch
+        );
+        assert_eq!(config.commit.types, CommitConfig::default().types);
+        assert_eq!(config.commit.scopes, CommitConfig::default().scopes);
+        assert_eq!(
+            config.commit.min_body_length,
+            CommitConfig::default().min_body_length
+        );
+        assert_eq!(
+            config.totp.step_seconds,
+            TotpConfig::default().step_seconds
+        );
+    }
+
+    #[test]
+    fn test_deserialize_partial_commit_only() {
+        let toml_str = r#"
+[commit]
+types = ["feat"]
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(
+            config.branches.allowed,
+            BranchConfig::default().allowed
+        );
+        assert_eq!(
+            config.commit.types,
+            AllowList::Only(vec!["feat".to_string()])
+        );
+        assert_eq!(config.commit.scopes, CommitConfig::default().scopes);
+        assert_eq!(
+            config.totp.step_seconds,
+            TotpConfig::default().step_seconds
+        );
+    }
+
+    #[test]
+    fn test_deserialize_partial_totp_only() {
+        let toml_str = r#"
+[totp]
+require_for_commit = true
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(
+            config.branches.allowed,
+            BranchConfig::default().allowed
+        );
+        assert_eq!(config.commit.types, CommitConfig::default().types);
+        assert!(config.totp.require_for_commit);
+        assert_eq!(
+            config.totp.backward_tolerance_secs,
+            TotpConfig::default().backward_tolerance_secs
+        );
+    }
+
+    #[test]
+    fn test_branch_config_default_allowed() {
+        let bc = BranchConfig::default();
+        assert_eq!(bc.allowed, vec!["development".to_string()]);
+    }
+
+    #[test]
+    fn test_branch_config_default_protected() {
+        let bc = BranchConfig::default();
+        assert_eq!(bc.protected, vec!["main".to_string(), "release".to_string()]);
+    }
+
+    #[test]
+    fn test_branch_config_default_branch() {
+        let bc = BranchConfig::default();
+        assert_eq!(bc.default_branch, "development");
+    }
+
+    #[test]
+    fn test_commit_config_default_types() {
+        let cc = CommitConfig::default();
+        match &cc.types {
+            AllowList::Only(types) => {
+                assert_eq!(types.len(), 7);
+                assert!(types.contains(&"feat".to_string()));
+                assert!(types.contains(&"fix".to_string()));
+                assert!(types.contains(&"docs".to_string()));
+                assert!(types.contains(&"refactor".to_string()));
+                assert!(types.contains(&"chore".to_string()));
+                assert!(types.contains(&"test".to_string()));
+                assert!(types.contains(&"style".to_string()));
+            }
+            other => panic!("expected AllowList::Only, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_commit_config_default_scopes() {
+        let cc = CommitConfig::default();
+        assert_eq!(cc.scopes, AllowList::All);
+    }
+
+    #[test]
+    fn test_totp_config_default_step_seconds() {
+        let tc = TotpConfig::default();
+        assert_eq!(tc.step_seconds, 30);
+    }
+
+    #[test]
+    fn test_totp_config_default_backward_tolerance() {
+        let tc = TotpConfig::default();
+        assert_eq!(tc.backward_tolerance_secs, 120);
+    }
 }
