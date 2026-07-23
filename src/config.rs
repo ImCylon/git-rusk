@@ -106,3 +106,72 @@ impl Config {
         Ok(Config::default())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_types_all() {
+        let toml_str = r#"types = "all""#;
+        let config: CommitConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.types, AllowList::All);
+    }
+
+    #[test]
+    fn test_deserialize_types_list() {
+        let toml_str = r#"types = ["feat", "fix"]"#;
+        let config: CommitConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(
+            config.types,
+            AllowList::Only(vec!["feat".to_string(), "fix".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_deserialize_types_invalid_string() {
+        let toml_str = r#"types = "maybe""#;
+        let result: Result<CommitConfig, toml::de::Error> = toml::from_str(toml_str);
+        assert!(result.is_err());
+        let msg = result.err().unwrap().to_string();
+        assert!(
+            msg.contains("expected") || msg.contains("all"),
+            "error message should contain 'expected' or 'all', got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_deserialize_scopes_all() {
+        let toml_str = r#"scopes = "all""#;
+        let config: CommitConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.scopes, AllowList::All);
+    }
+
+    #[test]
+    fn test_deserialize_scopes_empty_list() {
+        let toml_str = r#"scopes = []"#;
+        let config: CommitConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.scopes, AllowList::Only(vec![]));
+    }
+
+    #[test]
+    fn test_allows_all_variant() {
+        let list = AllowList::All;
+        assert!(list.allows("anything"));
+        assert!(list.allows("feat"));
+        assert!(list.allows(""));
+    }
+
+    #[test]
+    fn test_allows_only_variant() {
+        let list = AllowList::Only(vec!["feat".to_string()]);
+        assert!(list.allows("feat"));
+        assert!(!list.allows("fix"));
+    }
+
+    #[test]
+    fn test_allows_empty_only_variant() {
+        let list = AllowList::Only(vec![]);
+        assert!(!list.allows("feat"));
+    }
+}
