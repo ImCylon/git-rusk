@@ -716,4 +716,285 @@ mod tests {
             "footer-only body with no Description: must be rejected"
         );
     }
+
+    #[test]
+    fn test_error_invalid_header_contains_format_reference() {
+        let msg = "bad header";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let error = result
+            .unwrap_err()
+            .into_iter()
+            .find(|e| matches!(e, ValidationError::InvalidHeader { .. }))
+            .expect("should have InvalidHeader error");
+        let msg = error.to_string();
+        assert!(
+            msg.contains("type(scope): description"),
+            "InvalidHeader should contain format reference"
+        );
+        assert!(
+            msg.contains("Example:"),
+            "InvalidHeader should contain Example section"
+        );
+        assert!(
+            msg.contains("feat(auth)"),
+            "InvalidHeader should contain a copy-pasteable example"
+        );
+        assert!(
+            msg.contains("Allowed types"),
+            "InvalidHeader should list allowed types"
+        );
+    }
+
+    #[test]
+    fn test_error_missing_scope_contains_format_reference() {
+        let msg = "feat: add login\n\nDescription: Adds login screen.";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let error = result
+            .unwrap_err()
+            .into_iter()
+            .find(|e| matches!(e, ValidationError::MissingScope))
+            .expect("should have MissingScope error");
+        let msg = error.to_string();
+        assert!(
+            msg.contains("type(scope): description"),
+            "MissingScope should contain format reference"
+        );
+        assert!(
+            msg.contains("scope is MANDATORY"),
+            "MissingScope should explain scope is mandatory"
+        );
+    }
+
+    #[test]
+    fn test_error_invalid_type_contains_received_and_allowed_and_example() {
+        let msg = "unknown(scope): desc\n\nDescription: Some description.";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let error = result
+            .unwrap_err()
+            .into_iter()
+            .find(|e| matches!(e, ValidationError::InvalidType { .. }))
+            .expect("should have InvalidType error");
+        let msg = error.to_string();
+        assert!(
+            msg.contains("unknown"),
+            "InvalidType should contain received type"
+        );
+        assert!(
+            msg.contains("Allowed types"),
+            "InvalidType should list allowed types"
+        );
+        assert!(
+            msg.contains("Example:"),
+            "InvalidType should contain Example section"
+        );
+        assert!(
+            msg.contains("feat"),
+            "InvalidType example should use a valid type from config"
+        );
+    }
+
+    #[test]
+    fn test_error_invalid_scope_contains_received_and_allowed_and_example() {
+        let config = CommitConfig {
+            scopes: AllowList::Only(vec!["auth".into(), "api".into()]),
+            ..test_config()
+        };
+        let msg = "feat(unknown): desc\n\nDescription: Some description.";
+        let result = validate(msg, &config);
+        assert!(result.is_err());
+        let error = result
+            .unwrap_err()
+            .into_iter()
+            .find(|e| matches!(e, ValidationError::InvalidScope { .. }))
+            .expect("should have InvalidScope error");
+        let msg = error.to_string();
+        assert!(
+            msg.contains("unknown"),
+            "InvalidScope should contain received scope"
+        );
+        assert!(
+            msg.contains("Allowed scopes"),
+            "InvalidScope should list allowed scopes"
+        );
+        assert!(
+            msg.contains("auth") || msg.contains("api"),
+            "InvalidScope example should use a valid scope from config"
+        );
+    }
+
+    #[test]
+    fn test_error_missing_body_contains_description_and_minimum() {
+        let msg = "feat(auth): test";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let error = result
+            .unwrap_err()
+            .into_iter()
+            .find(|e| matches!(e, ValidationError::MissingBody { .. }))
+            .expect("should have MissingBody error");
+        let msg = error.to_string();
+        assert!(
+            msg.contains("Description:"),
+            "MissingBody should mention Description: prefix"
+        );
+        assert!(
+            msg.contains("10"),
+            "MissingBody should contain the minimum body length number"
+        );
+    }
+
+    #[test]
+    fn test_error_body_missing_description_prefix_contains_example_body() {
+        let msg = "feat(auth): add login\n\nThis has no prefix.";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let error = result
+            .unwrap_err()
+            .into_iter()
+            .find(|e| matches!(e, ValidationError::BodyMissingDescriptionPrefix))
+            .expect("should have BodyMissingDescriptionPrefix error");
+        let msg = error.to_string();
+        assert!(
+            msg.contains("Description:"),
+            "BodyMissingDescriptionPrefix should mention Description:"
+        );
+        assert!(
+            msg.contains("Example:"),
+            "BodyMissingDescriptionPrefix should contain Example section"
+        );
+    }
+
+    #[test]
+    fn test_error_body_too_short_contains_actual_and_minimum() {
+        let msg = "feat(auth): add login\n\nDescription: Short.";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let error = result
+            .unwrap_err()
+            .into_iter()
+            .find(|e| matches!(e, ValidationError::BodyTooShort { .. }))
+            .expect("should have BodyTooShort error");
+        let msg = error.to_string();
+        assert!(
+            msg.contains("6"),
+            "BodyTooShort should contain actual character count"
+        );
+        assert!(
+            msg.contains("10"),
+            "BodyTooShort should contain minimum required"
+        );
+    }
+
+    #[test]
+    fn test_multiple_errors_combined_contains_format_examples() {
+        let config = CommitConfig {
+            types: AllowList::Only(vec!["feat".into()]),
+            scopes: AllowList::Only(vec!["auth".into()]),
+            min_body_length: 20,
+        };
+        let msg = "badtype(badscope): desc\n\nDescription: Short.";
+        let result = validate(msg, &config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let combined: String = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
+        assert!(
+            combined.contains("badtype"),
+            "combined errors should mention received type"
+        );
+        assert!(
+            combined.contains("Allowed types"),
+            "combined errors should include allowed types list"
+        );
+        assert!(
+            combined.contains("badscope"),
+            "combined errors should mention received scope"
+        );
+        assert!(
+            combined.contains("Allowed scopes"),
+            "combined errors should include allowed scopes list"
+        );
+        assert!(
+            combined.contains("Example:"),
+            "combined errors should include format examples"
+        );
+    }
+
+    #[test]
+    fn test_error_messages_no_internal_debug_strings() {
+        let configs = vec![
+            ("bad header", test_config()),
+            (
+                "feat: no scope\n\nDescription: Has body text.",
+                test_config(),
+            ),
+            (
+                "unknown(scope): desc\n\nDescription: Some description.",
+                test_config(),
+            ),
+            (
+                "feat(badscope): desc\n\nDescription: Some description.",
+                CommitConfig {
+                    scopes: AllowList::Only(vec!["auth".into()]),
+                    ..test_config()
+                },
+            ),
+            ("feat(auth): test", test_config()),
+            (
+                "feat(auth): add login\n\nNo prefix here.",
+                test_config(),
+            ),
+            (
+                "feat(auth): add login\n\nDescription: Short.",
+                test_config(),
+            ),
+        ];
+
+        for (msg, config) in configs {
+            if let Err(errors) = validate(msg, &config) {
+                for error in &errors {
+                    let display = error.to_string();
+                    assert!(
+                        !display.contains("todo!"),
+                        "error message must not contain 'todo!': {display}"
+                    );
+                    assert!(
+                        !display.contains("panicked"),
+                        "error message must not contain 'panicked': {display}"
+                    );
+                    assert!(
+                        !display.contains("unwrap"),
+                        "error message must not contain 'unwrap': {display}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_error_messages_no_raw_file_paths() {
+        let msg = "bad header";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let combined: String = result
+            .unwrap_err()
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            !combined.contains(".rs:"),
+            "error messages must not contain raw file paths"
+        );
+        assert!(
+            !combined.contains("src/"),
+            "error messages must not contain source directory paths"
+        );
+        assert!(
+            !combined.contains("at line"),
+            "error messages must not contain stack trace references"
+        );
+    }
 }
