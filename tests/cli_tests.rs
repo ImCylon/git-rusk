@@ -44,7 +44,12 @@ fn version_shows_binary_name() {
 
 #[test]
 fn init_with_defaults_exits_zero() {
-    bin().arg("init").assert().success();
+    let tmp_dir = tempfile::tempdir().unwrap();
+    bin()
+        .arg("init")
+        .arg(tmp_dir.path().to_str().unwrap())
+        .assert()
+        .success();
 }
 
 #[test]
@@ -74,10 +79,12 @@ backward_tolerance_secs = 120
     let tmp = NamedTempFile::new().unwrap();
     std::fs::write(tmp.path(), toml_content).unwrap();
 
+    let tmp_dir = tempfile::tempdir().unwrap();
     bin()
         .arg("--config")
         .arg(tmp.path())
         .arg("init")
+        .arg(tmp_dir.path().to_str().unwrap())
         .assert()
         .success();
 }

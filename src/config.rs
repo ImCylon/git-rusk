@@ -75,10 +75,24 @@ impl Default for TotpConfig {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AllowList {
     All,
     Only(Vec<String>),
+}
+
+impl serde::Serialize for AllowList {
+    /// Serializes `All` as the string `"all"` and `Only(vec)` as a plain
+    /// array, matching the custom [`Deserialize`] format for TOML round-trip.
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            AllowList::All => serializer.serialize_str("all"),
+            AllowList::Only(list) => list.serialize(serializer),
+        }
+    }
 }
 
 impl<'de> serde::Deserialize<'de> for AllowList {
@@ -604,10 +618,7 @@ default_branch = "feature"
         let serialized = toml::to_string_pretty(&original).unwrap();
         let deserialized: Config = toml::from_str(&serialized).unwrap();
         assert_eq!(deserialized.branches.allowed, original.branches.allowed);
-        assert_eq!(
-            deserialized.branches.protected,
-            original.branches.protected
-        );
+        assert_eq!(deserialized.branches.protected, original.branches.protected);
         assert_eq!(
             deserialized.branches.default_branch,
             original.branches.default_branch
