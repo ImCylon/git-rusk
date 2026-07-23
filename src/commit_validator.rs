@@ -486,4 +486,113 @@ mod tests {
             .iter()
             .any(|e| matches!(e, ValidationError::InvalidScope { .. })));
     }
+
+    #[test]
+    fn test_body_valid_with_min_length() {
+        let msg = "feat(auth): add login\n\nDescription: Adds login screen with validation.";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_body_too_short_error_fields() {
+        let msg = "feat(auth): add login\n\nDescription: Short.";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        let too_short = errors
+            .iter()
+            .find(|e| matches!(e, ValidationError::BodyTooShort { .. }));
+        assert!(too_short.is_some(), "should have BodyTooShort error");
+        if let Some(ValidationError::BodyTooShort { actual, minimum }) = too_short {
+            assert_eq!(*actual, 6, "actual length should be 6 for 'Short.'");
+            assert_eq!(*minimum, 10);
+        }
+    }
+
+    #[test]
+    fn test_missing_body_error_carries_minimum() {
+        let msg = "feat(auth): add login";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::MissingBody { minimum: 10 })));
+    }
+
+    #[test]
+    fn test_body_without_description_prefix_error() {
+        let msg = "feat(auth): add login\n\nThis has no prefix.";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(
+            errors
+                .iter()
+                .any(|e| e == &ValidationError::BodyMissingDescriptionPrefix),
+            "should have BodyMissingDescriptionPrefix"
+        );
+    }
+
+    #[test]
+    fn test_multiline_body_counted_in_full() {
+        let msg = "feat(auth): add login\n\nDescription: First line of description\nthat continues to a second line\nand a third.";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_body_with_footer_passes() {
+        let msg = "feat(auth): add login\n\nDescription: Valid description text.\n\nFixes #123";
+        assert!(validate(msg, &test_config()).is_ok());
+    }
+
+    #[test]
+    fn test_footer_only_body_rejected() {
+        let msg = "feat(auth): add login\n\nFixes #123\nCo-authored-by: Jane <jane@example.com>";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err(), "footer-only body should be rejected");
+        let errors = result.unwrap_err();
+        assert!(
+            errors.iter().any(|e| matches!(
+                e,
+                ValidationError::MissingBody { .. } | ValidationError::BodyMissingDescriptionPrefix
+            )),
+            "should have MissingBody or BodyMissingDescriptionPrefix"
+        );
+    }
+
+    #[test]
+    fn test_description_prefix_case_sensitive() {
+        let msg = "feat(auth): add login\n\ndescription: lowercase d";
+        let result = validate(msg, &test_config());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(
+            errors
+                .iter()
+                .any(|e| e == &ValidationError::BodyMissingDescriptionPrefix),
+            "lowercase 'description:' should be rejected"
+        );
+    }
+
+    #[test]
+    fn test_body_length_counts_chars_not_bytes() {
+        let config = CommitConfig {
+            min_body_length: 10,
+            ..test_config()
+        };
+        let msg = "feat(auth): add login\n\nDescription: héllo";
+        let result = validate(msg, &config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        if let Some(ValidationError::BodyTooShort { actual, minimum }) = errors
+            .iter()
+            .find(|e| matches!(e, ValidationError::BodyTooShort { .. }))
+        {
+            assert_eq!(*actual, 5, "héllo is 5 chars not 6 bytes");
+            assert_eq!(*minimum, 10);
+        } else {
+            panic!("expected BodyTooShort error");
+        }
+    }
 }
