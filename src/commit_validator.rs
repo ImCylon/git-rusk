@@ -899,7 +899,11 @@ mod tests {
         let result = validate(msg, &config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
-        let combined: String = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
+        let combined: String = errors
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(
             combined.contains("badtype"),
             "combined errors should mention received type"
@@ -942,10 +946,7 @@ mod tests {
                 },
             ),
             ("feat(auth): test", test_config()),
-            (
-                "feat(auth): add login\n\nNo prefix here.",
-                test_config(),
-            ),
+            ("feat(auth): add login\n\nNo prefix here.", test_config()),
             (
                 "feat(auth): add login\n\nDescription: Short.",
                 test_config(),
