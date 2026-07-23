@@ -179,6 +179,56 @@ fn first_scope(scopes: &AllowList) -> String {
     }
 }
 
+const FOOTER_TOKENS: &[&str] = &[
+    "BREAKING CHANGE:",
+    "BREAKING-CHANGE:",
+    "Fixes #",
+    "Refs #",
+    "Co-authored-by:",
+];
+
+fn extract_body_content(body: &str) -> String {
+    let mut content_lines = Vec::new();
+    for line in body.lines() {
+        if FOOTER_TOKENS.iter().any(|token| line.starts_with(token)) {
+            break;
+        }
+        content_lines.push(line);
+    }
+    content_lines.join("\n")
+}
+
+fn validate_body(body: &str, min_length: usize) -> Vec<ValidationError> {
+    let mut errors = Vec::new();
+    let content = extract_body_content(body);
+    let trimmed = content.trim();
+
+    if trimmed.is_empty() {
+        errors.push(ValidationError::MissingBody {
+            minimum: min_length,
+        });
+        return errors;
+    }
+
+    if !trimmed.starts_with("Description:") {
+        errors.push(ValidationError::BodyMissingDescriptionPrefix);
+    }
+
+    let description_content = trimmed
+        .strip_prefix("Description:")
+        .unwrap_or(trimmed)
+        .trim();
+    let count = description_content.chars().count();
+    if count < min_length {
+        errors.push(ValidationError::BodyTooShort {
+            actual: count,
+            minimum: min_length,
+        });
+    }
+
+    errors
+}
+
 fn has_type_without_scope(header: &str) -> bool {
     if let Some(idx) = header.find(": ") {
         let before_colon = &header[..idx];
@@ -246,9 +296,7 @@ pub fn validate(message: &str, config: &CommitConfig) -> Result<(), Vec<Validati
             });
         }
         Some(body_text) => {
-            if !body_text.trim().starts_with("Description:") {
-                errors.push(ValidationError::BodyMissingDescriptionPrefix);
-            }
+            errors.extend(validate_body(body_text, config.min_body_length));
         }
     }
 
