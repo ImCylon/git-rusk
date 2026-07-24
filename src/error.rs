@@ -78,6 +78,22 @@ pub enum GitHookError {
 
     #[error("Commit validation failed: {errors}")]
     CommitValidationFailed { errors: String },
+
+    #[error("Hook {hook_name} cannot be overwritten: {reason}")]
+    HookOverwriteRefused { hook_name: String, reason: String },
+
+    #[error("Hook {hook_name} is a symlink and cannot be overwritten")]
+    HookIsSymlink { hook_name: String },
+
+    #[error("Not a git repository (no .git directory found)")]
+    NotAGitRepository,
+
+    #[error("Failed to write hook {hook_name}: {source}")]
+    HookWriteFailed {
+        hook_name: String,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 impl GitHookError {
@@ -100,8 +116,12 @@ impl GitHookError {
             | GitHookError::TotpConstruction { .. }
             | GitHookError::TotpSystemTime { .. }
             | GitHookError::TotpSecretAlreadyExists
-            | GitHookError::HookMessageFileReadFailed { .. }
-            | GitHookError::CommitValidationFailed { .. } => 1,
+            |             GitHookError::HookMessageFileReadFailed { .. }
+            | GitHookError::CommitValidationFailed { .. }
+            | GitHookError::HookOverwriteRefused { .. }
+            | GitHookError::HookIsSymlink { .. }
+            | GitHookError::NotAGitRepository
+            | GitHookError::HookWriteFailed { .. } => 1,
         }
     }
 }
