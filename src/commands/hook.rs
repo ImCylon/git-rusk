@@ -1,5 +1,4 @@
 use anyhow::Result;
-
 use crate::cli::HookAction;
 use crate::config::Config;
 use crate::hook_commit_msg;
@@ -8,9 +7,9 @@ use crate::hook_pre_commit;
 
 pub fn run(action: &HookAction, config: &Config) -> Result<()> {
     match action {
-        HookAction::PreCommit => hook_pre_commit::run(config),
-        HookAction::CommitMsg { msg_file } => hook_commit_msg::run(msg_file.clone(), config),
-        HookAction::PostCheckout => hook_post_checkout::run(config),
+        HookAction::PreCommit => hook_pre_commit::run(config).map_err(|e| anyhow::anyhow!(e)),
+        HookAction::CommitMsg { msg_file } => hook_commit_msg::run(msg_file.clone(), config).map_err(|e| anyhow::anyhow!(e)),
+        HookAction::PostCheckout => hook_post_checkout::run(config).map_err(|e| anyhow::anyhow!(e)),
     }
 }
 

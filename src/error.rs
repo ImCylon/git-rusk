@@ -68,6 +68,16 @@ pub enum GitHookError {
 
     #[error("TOTP secret already exists. Use --force to overwrite.")]
     TotpSecretAlreadyExists,
+
+    #[error("Failed to read hook message file {path}: {source}")]
+    HookMessageFileReadFailed {
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("Commit validation failed: {errors}")]
+    CommitValidationFailed { errors: String },
 }
 
 impl GitHookError {
@@ -82,14 +92,16 @@ impl GitHookError {
             | GitHookError::FileWrite { .. }
             | GitHookError::TemplateNotFound(_)
             | GitHookError::TotpSecretNotFound { .. }
-            | GitHookError::TotpSecretRead { .. }
+            |             GitHookError::TotpSecretRead { .. }
             | GitHookError::TotpSecretWrite { .. }
             | GitHookError::TotpSecretInsecurePerms { .. }
             | GitHookError::TotpSecretInvalid { .. }
             | GitHookError::TotpCodeNotSet
             | GitHookError::TotpConstruction { .. }
             | GitHookError::TotpSystemTime { .. }
-            | GitHookError::TotpSecretAlreadyExists => 1,
+            | GitHookError::TotpSecretAlreadyExists
+            | GitHookError::HookMessageFileReadFailed { .. }
+            | GitHookError::CommitValidationFailed { .. } => 1,
         }
     }
 }
