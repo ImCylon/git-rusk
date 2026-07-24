@@ -36,10 +36,10 @@ pub fn load_secret() -> Result<String, GitHookError> {
     })?;
 
     let mode = metadata.permissions().mode();
-    if mode != 0o600 {
+    if mode & 0o777 != 0o600 {
         return Err(GitHookError::TotpSecretInsecurePerms {
             path: path.display().to_string(),
-            mode: format!("{:o}", mode),
+            mode: format!("{:o}", mode & 0o777),
         });
     }
 
@@ -159,6 +159,8 @@ pub fn generate_and_save_secret() -> Result<SecretDisplay, GitHookError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
+    use std::os::unix::fs::PermissionsExt;
 
     const RFC_SECRET: &[u8] = b"12345678901234567890";
 
@@ -192,5 +194,204 @@ mod tests {
         assert_eq!(totp.generate(59), "287082");
         assert_eq!(totp.generate(1111111109), "081804");
         assert_eq!(totp.generate(1111111111), "050471");
+    }
+
+    #[test]
+    fn test_skew_accepts_120s_backward() {
+        let totp = make_totp(4, 6);
+        let code = totp.generate(0);
+        assert!(totp.check(&code, 120));
+    }
+
+    #[test]
+    fn test_skew_rejects_150s_backward() {
+        let totp = make_totp(4, 6);
+        let code = totp.generate(0);
+        assert!(!totp.check(&code, 150));
+    }
+
+    #[test]
+    fn test_check_valid_code_at_current_time() {
+        let totp = make_totp(0, 6);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let code = totp.generate(now);
+        assert!(totp.check(&code, now));
+    }
+
+    #[test]
+    fn test_check_invalid_code_returns_false() {
+        let totp = make_totp(0, 6);
+        assert!(!totp.check("000000", 1234567890));
+    }
+
+    #[test]
+    fn test_build_totp_default_skew_is_4() {
+        let result = build_totp("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", &TotpConfig::default());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_totp_custom_skew_from_config() {
+        let config = TotpConfig {
+            backward_tolerance_secs: 60,
+            ..Default::default()
+        };
+        let totp = build_totp("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", &config).unwrap();
+        let code = totp.generate(0);
+        assert!(totp.check(&code, 60));
+        assert!(!totp.check(&code, 90));
+    }
+
+    #[test]
+    #[serial]
+    fn test_secret_file_path_with_xdg_config_home() {
+        let tmp = tempfile::tempdir().unwrap();
+        let xdg_path = tmp.path().to_str().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", xdg_path);
+        let path = secret_file_path();
+        assert_eq!(
+            path,
+            std::path::PathBuf::from(format!("{}/git-rusk/totp-secret", xdg_path))
+        );
+        std::env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_secret_file_path_falls_back_to_home() {
+        std::env::remove_var("XDG_CONFIG_HOME");
+        let tmp = tempfile::tempdir().unwrap();
+        let home_path = tmp.path().to_str().unwrap();
+        std::env::set_var("HOME", home_path);
+        let path = secret_file_path();
+        assert_eq!(
+            path,
+            std::path::PathBuf::from(format!("{}/.config/git-rusk/totp-secret", home_path))
+        );
+        std::env::remove_var("HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_secret_creates_file_with_0600_perms() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        save_secret("JBSWY3DPEHPK3PXP").unwrap();
+        let path = secret_file_path();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o7777, 0o600);
+        std::env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_secret_creates_parent_dirs() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        let parent = tmp.path().join("git-rusk");
+        assert!(!parent.exists());
+        save_secret("JBSWY3DPEHPK3PXP").unwrap();
+        assert!(parent.exists());
+        std::env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_secret_missing_file_returns_not_found() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        let result = load_secret();
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            GitHookError::TotpSecretNotFound { .. }
+        ));
+        std::env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_secret_rejects_0644_perms() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        let path = secret_file_path();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "JBSWY3DPEHPK3PXP").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let result = load_secret();
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            GitHookError::TotpSecretInsecurePerms { .. }
+        ));
+        std::env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_secret_rejects_0640_perms() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        let path = secret_file_path();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "JBSWY3DPEHPK3PXP").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
+        let result = load_secret();
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            GitHookError::TotpSecretInsecurePerms { .. }
+        ));
+        std::env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_secret_0600_returns_trimmed_content() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        let path = secret_file_path();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "  JBSWY3DPEHPK3PXP\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let result = load_secret();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "JBSWY3DPEHPK3PXP");
+        std::env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_load_round_trip() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        save_secret("JBSWY3DPEHPK3PXP").unwrap();
+        let loaded = load_secret().unwrap();
+        assert_eq!(loaded, "JBSWY3DPEHPK3PXP");
+        std::env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_verify_from_env_unset_returns_code_not_set() {
+        std::env::remove_var("TOTP_CODE");
+        let result = verify_from_env(&TotpConfig::default());
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), GitHookError::TotpCodeNotSet));
+    }
+
+    #[test]
+    #[serial]
+    fn test_verify_code_wrong_code_returns_false() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        save_secret("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ").unwrap();
+        let result = verify_code("000000", &TotpConfig::default());
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+        std::env::remove_var("XDG_CONFIG_HOME");
     }
 }
