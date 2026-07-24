@@ -443,6 +443,54 @@ require_for_commit = true
     }
 
     #[test]
+    fn test_totp_config_default_require_for_commit() {
+        let tc = TotpConfig::default();
+        assert!(!tc.require_for_commit);
+    }
+
+    #[test]
+    fn test_totp_config_default_require_for_branch_switch() {
+        let tc = TotpConfig::default();
+        assert!(!tc.require_for_branch_switch);
+    }
+
+    #[test]
+    fn test_totp_deserialize_require_for_commit_true() {
+        let toml_str = "require_for_commit = true";
+        let tc: TotpConfig = toml::from_str(toml_str).unwrap();
+        assert!(tc.require_for_commit);
+        assert!(!tc.require_for_branch_switch);
+        assert_eq!(tc.step_seconds, 30);
+        assert_eq!(tc.backward_tolerance_secs, 120);
+    }
+
+    #[test]
+    fn test_totp_deserialize_require_for_branch_switch_true() {
+        let toml_str = "require_for_branch_switch = true";
+        let tc: TotpConfig = toml::from_str(toml_str).unwrap();
+        assert!(tc.require_for_branch_switch);
+        assert!(!tc.require_for_commit);
+        assert_eq!(tc.step_seconds, 30);
+        assert_eq!(tc.backward_tolerance_secs, 120);
+    }
+
+    #[test]
+    fn test_totp_deserialize_both_toggles_true() {
+        let toml_str = "require_for_commit = true\nrequire_for_branch_switch = true";
+        let tc: TotpConfig = toml::from_str(toml_str).unwrap();
+        assert!(tc.require_for_commit);
+        assert!(tc.require_for_branch_switch);
+        assert_eq!(tc.step_seconds, 30);
+        assert_eq!(tc.backward_tolerance_secs, 120);
+    }
+
+    #[test]
+    fn test_totp_config_default_step_seconds_30() {
+        let tc = TotpConfig::default();
+        assert_eq!(tc.step_seconds, 30);
+    }
+
+    #[test]
     fn test_load_valid_full_toml() {
         let toml_content = r#"
 [branches]
