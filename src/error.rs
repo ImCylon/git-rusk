@@ -108,7 +108,7 @@ impl GitHookError {
             | GitHookError::FileWrite { .. }
             | GitHookError::TemplateNotFound(_)
             | GitHookError::TotpSecretNotFound { .. }
-            |             GitHookError::TotpSecretRead { .. }
+            | GitHookError::TotpSecretRead { .. }
             | GitHookError::TotpSecretWrite { .. }
             | GitHookError::TotpSecretInsecurePerms { .. }
             | GitHookError::TotpSecretInvalid { .. }
@@ -116,7 +116,7 @@ impl GitHookError {
             | GitHookError::TotpConstruction { .. }
             | GitHookError::TotpSystemTime { .. }
             | GitHookError::TotpSecretAlreadyExists
-            |             GitHookError::HookMessageFileReadFailed { .. }
+            | GitHookError::HookMessageFileReadFailed { .. }
             | GitHookError::CommitValidationFailed { .. }
             | GitHookError::HookOverwriteRefused { .. }
             | GitHookError::HookIsSymlink { .. }

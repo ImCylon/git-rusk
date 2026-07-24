@@ -42,7 +42,8 @@ fn test_integration_install_hooks_creates_executable_wrappers() {
         let metadata = fs::metadata(&hook_path).unwrap();
         let mode = metadata.permissions().mode();
         assert_eq!(
-            mode & 0o111, 0o111,
+            mode & 0o111,
+            0o111,
             "{} hook should be executable",
             hook_name
         );
@@ -91,9 +92,15 @@ fn test_integration_refuses_non_git_rusk_hook_without_force() {
     std::env::set_current_dir(repo_path).unwrap();
     let result = install_hooks::run(false);
     assert!(result.is_err());
-    let err = result.unwrap_err().downcast::<git_rusk::error::GitHookError>().unwrap();
+    let err = result
+        .unwrap_err()
+        .downcast::<git_rusk::error::GitHookError>()
+        .unwrap();
     assert!(
-        matches!(err, git_rusk::error::GitHookError::HookOverwriteRefused { .. }),
+        matches!(
+            err,
+            git_rusk::error::GitHookError::HookOverwriteRefused { .. }
+        ),
         "Should return HookOverwriteRefused error"
     );
 }
@@ -110,11 +117,7 @@ fn test_integration_force_overwrites_custom_hook() {
 
     let hooks_dir = repo_path.join(".git/hooks");
     fs::create_dir_all(&hooks_dir).unwrap();
-    fs::write(
-        hooks_dir.join("pre-commit"),
-        "#!/bin/sh\necho 'old hook'",
-    )
-    .unwrap();
+    fs::write(hooks_dir.join("pre-commit"), "#!/bin/sh\necho 'old hook'").unwrap();
 
     std::env::set_current_dir(repo_path).unwrap();
     install_hooks::run(true).unwrap();

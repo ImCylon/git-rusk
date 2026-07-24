@@ -36,9 +36,9 @@ fn install_single_hook(hook_name: &str, force: bool) -> Result<()> {
             if !contains_git_rusk(&hook_path)? {
                 return Err(GitHookError::HookOverwriteRefused {
                     hook_name: hook_name.to_string(),
-                    reason: format!(
+                    reason:
                         "existing hook does not contain 'git-rusk hook'. Use --force to overwrite."
-                    ),
+                            .to_string(),
                 }
                 .into());
             }
@@ -52,10 +52,7 @@ fn install_single_hook(hook_name: &str, force: bool) -> Result<()> {
         }
     }
 
-    let wrapper_script = format!(
-        "#!/bin/sh\nexec git-rusk hook {} \"$@\"\n",
-        hook_name
-    );
+    let wrapper_script = format!("#!/bin/sh\nexec git-rusk hook {} \"$@\"\n", hook_name);
 
     fs::write(&hook_path, wrapper_script).map_err(|e| GitHookError::HookWriteFailed {
         hook_name: hook_name.to_string(),
@@ -75,7 +72,9 @@ fn install_single_hook(hook_name: &str, force: bool) -> Result<()> {
 }
 
 fn is_symlink(path: &Path) -> bool {
-    path.symlink_metadata().map(|m| m.is_symlink()).unwrap_or(false)
+    path.symlink_metadata()
+        .map(|m| m.is_symlink())
+        .unwrap_or(false)
 }
 
 fn contains_git_rusk(path: &Path) -> Result<bool> {
@@ -110,8 +109,11 @@ mod tests {
     fn test_contains_git_rusk_returns_true_when_present() {
         let tmp_dir = TempDir::new().unwrap();
         let file_path = tmp_dir.path().join("hook.sh");
-        fs::write(&file_path, "#!/bin/sh\nexec git-rusk hook pre-commit \"$@\"")
-            .unwrap();
+        fs::write(
+            &file_path,
+            "#!/bin/sh\nexec git-rusk hook pre-commit \"$@\"",
+        )
+        .unwrap();
         assert!(contains_git_rusk(&file_path).unwrap());
     }
 
@@ -154,8 +156,7 @@ mod tests {
         let tmp_dir = TempDir::new().unwrap();
         let hooks_dir = tmp_dir.path().join(".git/hooks");
         fs::create_dir_all(&hooks_dir).unwrap();
-        fs::write(hooks_dir.join("pre-commit"), "#!/bin/sh\necho 'custom'")
-            .unwrap();
+        fs::write(hooks_dir.join("pre-commit"), "#!/bin/sh\necho 'custom'").unwrap();
 
         std::env::set_current_dir(tmp_dir.path()).unwrap();
         let result = run(false);
@@ -187,8 +188,7 @@ mod tests {
         let tmp_dir = TempDir::new().unwrap();
         let hooks_dir = tmp_dir.path().join(".git/hooks");
         fs::create_dir_all(&hooks_dir).unwrap();
-        fs::write(hooks_dir.join("pre-commit"), "#!/bin/sh\necho 'old'")
-            .unwrap();
+        fs::write(hooks_dir.join("pre-commit"), "#!/bin/sh\necho 'old'").unwrap();
 
         std::env::set_current_dir(tmp_dir.path()).unwrap();
         let result = run(true);
