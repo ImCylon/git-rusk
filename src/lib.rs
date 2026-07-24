@@ -5,6 +5,7 @@ pub mod config;
 pub mod error;
 pub mod git_ops;
 pub mod templates;
+pub mod totp;
 
 use anyhow::Result;
 use cli::Cli;
@@ -16,6 +17,7 @@ pub fn run(cli: Cli) -> Result<()> {
         cli::Command::Init(args) => commands::init::run(args, &config),
         cli::Command::InstallHooks => commands::install_hooks::run(&config),
         cli::Command::Hook { name, args } => commands::hook::run(*name, args, &config),
+        cli::Command::Totp(args) => commands::totp::dispatch(args),
     }
 }
 

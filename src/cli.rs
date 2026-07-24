@@ -38,6 +38,41 @@ pub enum Command {
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
+
+    /// Manage the global TOTP secret
+    #[command(name = "totp")]
+    Totp(TotpArgs),
+}
+
+/// Arguments for the `totp` subcommand.
+#[derive(Args)]
+pub struct TotpArgs {
+    #[command(subcommand)]
+    pub action: TotpAction,
+}
+
+/// Actions available under the `totp` subcommand.
+#[derive(Subcommand)]
+pub enum TotpAction {
+    /// Generate and save a new global TOTP secret
+    #[command(name = "init")]
+    Init {
+        /// Overwrite existing secret without confirmation
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Display the current TOTP secret and otpauth URI
+    #[command(name = "show")]
+    Show,
+
+    /// Rotate the global TOTP secret
+    #[command(name = "reset")]
+    Reset {
+        /// Skip confirmation prompt
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[derive(Args)]

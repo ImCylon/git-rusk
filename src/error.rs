@@ -33,6 +33,41 @@ pub enum GitHookError {
 
     #[error("Template not found: {0}")]
     TemplateNotFound(String),
+
+    #[error("TOTP secret not found at {path}. Run 'git-rusk totp init' to create one.")]
+    TotpSecretNotFound { path: String },
+
+    #[error("Failed to read TOTP secret from {path}: {source}")]
+    TotpSecretRead {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("Failed to write TOTP secret to {path}: {source}")]
+    TotpSecretWrite {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("TOTP secret file {path} has insecure permissions: {mode} (expected 600)")]
+    TotpSecretInsecurePerms { path: String, mode: String },
+
+    #[error("TOTP secret is invalid: {message}")]
+    TotpSecretInvalid { message: String },
+
+    #[error("TOTP_CODE environment variable is not set")]
+    TotpCodeNotSet,
+
+    #[error("TOTP construction failed: {message}")]
+    TotpConstruction { message: String },
+
+    #[error("System time error during TOTP verification: {message}")]
+    TotpSystemTime { message: String },
+
+    #[error("TOTP secret already exists. Use --force to overwrite.")]
+    TotpSecretAlreadyExists,
 }
 
 impl GitHookError {
@@ -45,7 +80,16 @@ impl GitHookError {
             | GitHookError::GitOperation(_)
             | GitHookError::GitNotFound
             | GitHookError::FileWrite { .. }
-            | GitHookError::TemplateNotFound(_) => 1,
+            | GitHookError::TemplateNotFound(_)
+            | GitHookError::TotpSecretNotFound { .. }
+            | GitHookError::TotpSecretRead { .. }
+            | GitHookError::TotpSecretWrite { .. }
+            | GitHookError::TotpSecretInsecurePerms { .. }
+            | GitHookError::TotpSecretInvalid { .. }
+            | GitHookError::TotpCodeNotSet
+            | GitHookError::TotpConstruction { .. }
+            | GitHookError::TotpSystemTime { .. }
+            | GitHookError::TotpSecretAlreadyExists => 1,
         }
     }
 }
