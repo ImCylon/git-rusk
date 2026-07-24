@@ -1,3 +1,4 @@
+pub mod branch_protection;
 pub mod cli;
 pub mod commands;
 pub mod commit_validator;
