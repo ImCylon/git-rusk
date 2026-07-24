@@ -46,9 +46,39 @@ pub struct InitArgs {
     #[arg(default_value = ".")]
     pub path: PathBuf,
 
-    /// Language template for .gitignore (e.g. "rust", "python")
-    #[arg(short, long)]
-    pub gitignore: Option<String>,
+    /// Language template for .gitignore
+    #[arg(short, long, value_enum, default_value_t = GitignoreLang::None)]
+    pub gitignore: GitignoreLang,
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum)]
+pub enum GitignoreLang {
+    /// Rust .gitignore template
+    #[value(name = "rust")]
+    Rust,
+
+    /// Python .gitignore template
+    #[value(name = "python")]
+    Python,
+
+    /// Node.js .gitignore template
+    #[value(name = "node")]
+    Node,
+
+    /// Skip .gitignore generation
+    #[value(name = "none")]
+    None,
+}
+
+impl GitignoreLang {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            GitignoreLang::Rust => "rust",
+            GitignoreLang::Python => "python",
+            GitignoreLang::Node => "node",
+            GitignoreLang::None => "none",
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum)]

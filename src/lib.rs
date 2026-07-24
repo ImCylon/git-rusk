@@ -4,6 +4,7 @@ pub mod commit_validator;
 pub mod config;
 pub mod error;
 pub mod git_ops;
+pub mod templates;
 
 use anyhow::Result;
 use cli::Cli;
