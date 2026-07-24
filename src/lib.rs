@@ -18,7 +18,7 @@ pub fn run(cli: Cli) -> Result<()> {
 
     match &cli.command {
         cli::Command::Init(args) => commands::init::run(args, &config),
-        cli::Command::InstallHooks => commands::install_hooks::run(&config),
+        cli::Command::InstallHooks { force } => commands::install_hooks::run(*force),
         cli::Command::Hook { action } => commands::hook::run(action, &config),
         cli::Command::Totp(args) => commands::totp::dispatch(args),
     }

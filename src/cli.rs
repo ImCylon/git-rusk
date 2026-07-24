@@ -29,7 +29,11 @@ pub enum Command {
 
     /// (Re)write the .git/hooks/ wrapper scripts
     #[command(name = "install-hooks")]
-    InstallHooks,
+    InstallHooks {
+        /// Force overwrite existing hooks (not symlinks)
+        #[arg(long)]
+        force: bool,
+    },
 
     /// Run a git hook by name (called by the installed wrapper scripts)
     #[command(name = "hook")]
