@@ -7,23 +7,27 @@ use crate::totp;
 
 pub fn dispatch(args: &TotpArgs) -> Result<()> {
     match &args.action {
-        TotpAction::Init { force } => run_init(*force),
+        TotpAction::Init { force, secret } => run_init(*force, secret.as_deref()),
         TotpAction::Show => run_show(),
-        TotpAction::Reset { force } => run_reset(*force),
+        TotpAction::Reset { force, secret } => run_reset(*force, secret.as_deref()),
     }
 }
 
 /// Generate and save a new global TOTP secret, then display it.
 ///
 /// Refuses to overwrite an existing secret unless `force` is `true`.
-fn run_init(force: bool) -> Result<()> {
+fn run_init(force: bool, secret: Option<&str>) -> Result<()> {
     let path = totp::secret_file_path();
 
     if path.exists() && !force {
         return Err(GitHookError::TotpSecretAlreadyExists.into());
     }
 
-    let display = totp::generate_and_save_secret()?;
+    let display = if let Some(custom) = secret {
+        totp::save_and_display_secret(custom)?
+    } else {
+        totp::generate_and_save_secret()?
+    };
 
     println!("TOTP secret generated and saved to: {}", path.display());
     println!();
@@ -54,14 +58,18 @@ fn run_show() -> Result<()> {
 ///
 /// Without `--force`, prints a warning to stderr and exits cleanly
 /// without performing any rotation.
-fn run_reset(force: bool) -> Result<()> {
+fn run_reset(force: bool, secret: Option<&str>) -> Result<()> {
     if !force {
         eprintln!("WARNING: This will invalidate ALL TOTP codes across ALL repositories.");
         eprintln!("Use --force to confirm.");
         return Ok(());
     }
 
-    let display = totp::generate_and_save_secret()?;
+    let display = if let Some(custom) = secret {
+        totp::save_and_display_secret(custom)?
+    } else {
+        totp::generate_and_save_secret()?
+    };
 
     println!("TOTP secret rotated. Old codes are now invalid.");
     println!();

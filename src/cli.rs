@@ -60,6 +60,10 @@ pub enum TotpAction {
         /// Overwrite existing secret without confirmation
         #[arg(long)]
         force: bool,
+
+        /// Manually set a Base32 secret instead of generating one
+        #[arg(long, value_name = "BASE32")]
+        secret: Option<String>,
     },
 
     /// Display the current TOTP secret and otpauth URI
@@ -72,6 +76,10 @@ pub enum TotpAction {
         /// Skip confirmation prompt
         #[arg(long)]
         force: bool,
+
+        /// Manually set a Base32 secret instead of generating one
+        #[arg(long, value_name = "BASE32")]
+        secret: Option<String>,
     },
 }
 

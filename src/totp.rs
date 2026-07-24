@@ -156,6 +156,16 @@ pub fn generate_and_save_secret() -> Result<SecretDisplay, GitHookError> {
     })
 }
 
+/// Save a user-provided Base32 secret globally and return display data.
+pub fn save_and_display_secret(base32_secret: &str) -> Result<SecretDisplay, GitHookError> {
+    let totp = build_totp(base32_secret, &TotpConfig::default())?;
+    save_secret(base32_secret)?;
+    Ok(SecretDisplay {
+        base32_secret: base32_secret.to_string(),
+        otpauth_url: totp.get_url(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
