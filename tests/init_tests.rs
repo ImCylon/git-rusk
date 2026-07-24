@@ -110,12 +110,7 @@ fn development_branch_exists() {
     let check = Command::new("git")
         .arg("-C")
         .arg(tmp.path())
-        .args([
-            "show-ref",
-            "--verify",
-            "--quiet",
-            "refs/heads/development",
-        ])
+        .args(["show-ref", "--verify", "--quiet", "refs/heads/development"])
         .output()
         .unwrap();
     assert!(check.status.success());
@@ -200,10 +195,19 @@ fn gitignore_none() {
 fn config_generated() {
     let tmp = init_in_tempdir(GitignoreLang::None);
     let config_path = tmp.path().join(".git-rusk.toml");
-    assert!(config_path.exists(), ".git-rusk.toml should exist after init");
+    assert!(
+        config_path.exists(),
+        ".git-rusk.toml should exist after init"
+    );
     let content = fs::read_to_string(&config_path).unwrap();
-    assert!(content.contains("[branches]"), "config should have [branches] section");
-    assert!(content.contains("[commit]"), "config should have [commit] section");
+    assert!(
+        content.contains("[branches]"),
+        "config should have [branches] section"
+    );
+    assert!(
+        content.contains("[commit]"),
+        "config should have [commit] section"
+    );
 }
 
 #[test]
