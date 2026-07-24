@@ -34,9 +34,8 @@ pub enum Command {
     /// Run a git hook by name (called by the installed wrapper scripts)
     #[command(name = "hook")]
     Hook {
-        name: HookName,
-        #[arg(trailing_var_arg = true)]
-        args: Vec<String>,
+        #[command(subcommand)]
+        action: HookAction,
     },
 
     /// Manage the global TOTP secret
@@ -83,6 +82,22 @@ pub enum TotpAction {
     },
 }
 
+/// Actions available under the `hook` subcommand.
+#[derive(Subcommand)]
+pub enum HookAction {
+    /// pre-commit hook — validates TOTP before commit (if enabled)
+    PreCommit,
+
+    /// commit-msg hook — validates the commit message format
+    CommitMsg {
+        /// Path to the commit message file
+        msg_file: std::path::PathBuf,
+    },
+
+    /// post-checkout hook — validates TOTP after branch switch (if enabled)
+    PostCheckout,
+}
+
 #[derive(Args)]
 pub struct InitArgs {
     /// Repository path to initialize (default: current directory)
@@ -122,16 +137,4 @@ impl GitignoreLang {
             GitignoreLang::None => "none",
         }
     }
-}
-
-#[derive(Copy, Clone, Debug, ValueEnum)]
-pub enum HookName {
-    /// pre-commit hook — validates commits before they are created
-    PreCommit,
-
-    /// commit-msg hook — validates the commit message format
-    CommitMsg,
-
-    /// post-checkout hook — runs after branch switching
-    PostCheckout,
 }

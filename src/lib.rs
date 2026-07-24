@@ -4,6 +4,9 @@ pub mod commit_validator;
 pub mod config;
 pub mod error;
 pub mod git_ops;
+pub mod hook_commit_msg;
+pub mod hook_post_checkout;
+pub mod hook_pre_commit;
 pub mod templates;
 pub mod totp;
 
@@ -16,7 +19,7 @@ pub fn run(cli: Cli) -> Result<()> {
     match &cli.command {
         cli::Command::Init(args) => commands::init::run(args, &config),
         cli::Command::InstallHooks => commands::install_hooks::run(&config),
-        cli::Command::Hook { name, args } => commands::hook::run(*name, args, &config),
+        cli::Command::Hook { action } => commands::hook::run(action, &config),
         cli::Command::Totp(args) => commands::totp::dispatch(args),
     }
 }
