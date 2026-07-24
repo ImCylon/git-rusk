@@ -1,3 +1,4 @@
+use crate::error::GitHookError;
 use std::path::Path;
 use std::process::Command;
 
@@ -132,6 +133,28 @@ pub fn checkout(path: &Path, name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Returns the current branch name using `git rev-parse --abbrev-ref HEAD`.
+///
+/// Returns "HEAD" for detached HEAD state.
+pub fn get_current_branch() -> Result<String, GitHookError> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output()
+        .map_err(|e| GitHookError::GitOperation(format!("Failed to execute git rev-parse: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitHookError::GitOperation(format!(
+            "git rev-parse --abbrev-ref HEAD failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    let branch = String::from_utf8(output.stdout)
+        .map_err(|e| GitHookError::GitOperation(format!("Failed to parse git output: {}", e)))?;
+    Ok(branch.trim().to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,5 +191,33 @@ mod tests {
         ensure_branch(path, "test-branch").unwrap();
         checkout(path, "test-branch").unwrap();
         assert_eq!(current_branch(path).unwrap(), "test-branch");
+    }
+
+    #[test]
+    fn test_get_current_branch() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path();
+        init_repo(path).unwrap();
+        ensure_initial_commit(path).unwrap();
+        ensure_branch(path, "feature/test").unwrap();
+        checkout(path, "feature/test").unwrap();
+        assert_eq!(get_current_branch().unwrap(), "feature/test");
+    }
+
+    #[test]
+    fn test_get_current_branch_detached_head() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path();
+        init_repo(path).unwrap();
+        ensure_initial_commit(path).unwrap();
+
+        std::env::set_current_dir(path).unwrap();
+        let output = Command::new("git")
+            .args(["checkout", "--detach"])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "git checkout --detach failed");
+
+        assert_eq!(get_current_branch().unwrap(), "HEAD");
     }
 }
