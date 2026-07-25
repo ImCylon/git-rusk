@@ -7,6 +7,7 @@ pub mod error;
 pub mod git_ops;
 pub mod hook_commit_msg;
 pub mod hook_post_checkout;
+pub mod hook_post_commit;
 pub mod hook_pre_commit;
 pub mod templates;
 pub mod totp;

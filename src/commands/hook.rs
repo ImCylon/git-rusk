@@ -2,6 +2,7 @@ use crate::cli::HookAction;
 use crate::config::Config;
 use crate::hook_commit_msg;
 use crate::hook_post_checkout;
+use crate::hook_post_commit;
 use crate::hook_pre_commit;
 use anyhow::Result;
 
@@ -15,6 +16,7 @@ pub fn run(action: &HookAction, config: &Config) -> Result<()> {
             hook_post_checkout::run(prev_head.clone(), new_head.clone(), *branch_switch, config)
                 .map_err(|e| anyhow::anyhow!(e))
         }
+        HookAction::PostCommit => hook_post_commit::run(config).map_err(|e| anyhow::anyhow!(e)),
     }
 }
 

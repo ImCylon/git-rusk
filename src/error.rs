@@ -100,6 +100,9 @@ pub enum GitHookError {
         branch: String,
         allowed: String,
     },
+
+    #[error("Auto-return failed: {0}")]
+    AutoReturnFailed(#[source] std::io::Error),
 }
 
 impl GitHookError {
@@ -122,13 +125,14 @@ impl GitHookError {
             | GitHookError::TotpConstruction { .. }
             | GitHookError::TotpSystemTime { .. }
             | GitHookError::TotpSecretAlreadyExists
-            |             GitHookError::HookMessageFileReadFailed { .. }
+            | GitHookError::HookMessageFileReadFailed { .. }
             | GitHookError::CommitValidationFailed { .. }
             | GitHookError::HookOverwriteRefused { .. }
             | GitHookError::HookIsSymlink { .. }
             | GitHookError::NotAGitRepository
             | GitHookError::HookWriteFailed { .. }
-            | GitHookError::CommitBlockedOnProtectedBranch { .. } => 1,
+            | GitHookError::CommitBlockedOnProtectedBranch { .. }
+            | GitHookError::AutoReturnFailed(_) => 1,
         }
     }
 }

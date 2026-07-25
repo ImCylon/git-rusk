@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::fs;
 use std::path::Path;
 
-const HOOKS: &[&str] = &["pre-commit", "commit-msg", "post-checkout"];
+const HOOKS: &[&str] = &["pre-commit", "commit-msg", "post-checkout", "post-commit"];
 const WRAPPER_TEMPLATE: &str = "#!/bin/sh\nexec git-rusk hook {hook_name} \"$@\"\n";
 
 pub fn run(force: bool) -> Result<()> {

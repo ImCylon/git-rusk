@@ -107,6 +107,9 @@ pub enum HookAction {
         /// Branch switch flag (1 = branch switch, 0 = file checkout)
         branch_switch: u8,
     },
+
+    /// post-commit hook — auto-returns to default branch after commit on protected branch
+    PostCommit,
 }
 
 #[derive(Args)]
