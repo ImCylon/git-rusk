@@ -11,7 +11,10 @@ pub fn run(action: &HookAction, config: &Config) -> Result<()> {
         HookAction::CommitMsg { msg_file } => {
             hook_commit_msg::run(msg_file.clone(), config).map_err(|e| anyhow::anyhow!(e))
         }
-        HookAction::PostCheckout => hook_post_checkout::run(config).map_err(|e| anyhow::anyhow!(e)),
+        HookAction::PostCheckout { prev_head, new_head, branch_switch } => {
+            hook_post_checkout::run(prev_head.clone(), new_head.clone(), *branch_switch, config)
+                .map_err(|e| anyhow::anyhow!(e))
+        }
     }
 }
 
@@ -31,7 +34,11 @@ mod tests {
     #[test]
     fn test_run_dispatches_to_post_checkout() {
         let config = Config::default();
-        let action = HookAction::PostCheckout;
+        let action = HookAction::PostCheckout {
+            prev_head: "abc123".to_string(),
+            new_head: "def456".to_string(),
+            branch_switch: 1,
+        };
         let result = run(&action, &config);
         assert!(result.is_ok());
     }

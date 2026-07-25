@@ -93,12 +93,8 @@ pub fn ensure_initial_commit(path: &Path) -> Result<()> {
         return Ok(());
     }
 
-    if !git_success(path, &["config", "user.name"]) {
-        git(path, &["config", "user.name", "git-rusk"])?;
-    }
-    if !git_success(path, &["config", "user.email"]) {
-        git(path, &["config", "user.email", "git-rusk@local"])?;
-    }
+    git(path, &["config", "user.name", "git-rusk"])?;
+    git(path, &["config", "user.email", "git-rusk@local"])?;
 
     git(
         path,
@@ -158,9 +154,28 @@ pub fn get_current_branch() -> Result<String, GitHookError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    struct DirGuard {
+        original: PathBuf,
+    }
+
+    impl DirGuard {
+        fn new() -> Self {
+            let original = std::env::current_dir().unwrap();
+            Self { original }
+        }
+    }
+
+    impl Drop for DirGuard {
+        fn drop(&mut self) {
+            let _ = std::env::set_current_dir(&self.original);
+        }
+    }
 
     #[test]
     fn test_init_creates_git_dir() {
+        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         assert!(!is_git_repo(path));
@@ -170,6 +185,7 @@ mod tests {
 
     #[test]
     fn test_ensure_initial_commit_creates_exactly_one() {
+        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         init_repo(path).unwrap();
@@ -184,6 +200,7 @@ mod tests {
 
     #[test]
     fn test_ensure_branch_and_checkout() {
+        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         init_repo(path).unwrap();
@@ -195,17 +212,19 @@ mod tests {
 
     #[test]
     fn test_get_current_branch() {
+        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         init_repo(path).unwrap();
         ensure_initial_commit(path).unwrap();
         ensure_branch(path, "feature/test").unwrap();
         checkout(path, "feature/test").unwrap();
-        assert_eq!(get_current_branch().unwrap(), "feature/test");
+        assert_eq!(current_branch(path).unwrap(), "feature/test");
     }
 
     #[test]
     fn test_get_current_branch_detached_head() {
+        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         init_repo(path).unwrap();

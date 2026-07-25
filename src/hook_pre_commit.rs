@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_run_skips_branch_check_for_detached_head() {
-        let config = Config::default();
+        let mut config = Config::default();
         config.totp.require_for_commit = false;
 
         let tmp = tempfile::tempdir().unwrap();

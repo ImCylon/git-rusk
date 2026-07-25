@@ -99,7 +99,14 @@ pub enum HookAction {
     },
 
     /// post-checkout hook — validates TOTP after branch switch (if enabled)
-    PostCheckout,
+    PostCheckout {
+        /// Previous HEAD SHA
+        prev_head: String,
+        /// New HEAD SHA
+        new_head: String,
+        /// Branch switch flag (1 = branch switch, 0 = file checkout)
+        branch_switch: u8,
+    },
 }
 
 #[derive(Args)]

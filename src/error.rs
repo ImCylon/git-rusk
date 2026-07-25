@@ -94,6 +94,12 @@ pub enum GitHookError {
         #[source]
         source: std::io::Error,
     },
+
+    #[error("Commit blocked: branch '{branch}' is not in allowed list\n  Allowed branches: {allowed}")]
+    CommitBlockedOnProtectedBranch {
+        branch: String,
+        allowed: String,
+    },
 }
 
 impl GitHookError {
@@ -116,12 +122,13 @@ impl GitHookError {
             | GitHookError::TotpConstruction { .. }
             | GitHookError::TotpSystemTime { .. }
             | GitHookError::TotpSecretAlreadyExists
-            | GitHookError::HookMessageFileReadFailed { .. }
+            |             GitHookError::HookMessageFileReadFailed { .. }
             | GitHookError::CommitValidationFailed { .. }
             | GitHookError::HookOverwriteRefused { .. }
             | GitHookError::HookIsSymlink { .. }
             | GitHookError::NotAGitRepository
-            | GitHookError::HookWriteFailed { .. } => 1,
+            | GitHookError::HookWriteFailed { .. }
+            | GitHookError::CommitBlockedOnProtectedBranch { .. } => 1,
         }
     }
 }
