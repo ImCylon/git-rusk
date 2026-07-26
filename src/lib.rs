@@ -23,6 +23,10 @@ pub fn run(cli: Cli) -> Result<()> {
         cli::Command::InstallHooks { force } => commands::install_hooks::run(*force),
         cli::Command::Hook { action } => commands::hook::run(action, &config),
         cli::Command::Totp(args) => commands::totp::dispatch(args),
+        cli::Command::Completions { shell } => {
+            commands::completions::run(*shell);
+            Ok(())
+        }
     }
 }
 

@@ -16,6 +16,7 @@ regex = "1.13"
 include_dir = "0.7"
 totp-rs = { version = "5.7", features = ["gen_secret", "zeroize", "otpauth"] }
 zeroize = "1.9"
+clap_complete = "4.6"
 
 [dev-dependencies]
 tempfile = "3"

@@ -45,6 +45,13 @@ pub enum Command {
     /// Manage the global TOTP secret
     #[command(name = "totp")]
     Totp(TotpArgs),
+
+    /// Generate shell completion scripts (bash/zsh/fish) to stdout
+    #[command(name = "completions")]
+    Completions {
+        /// Target shell (bash, zsh, fish, ...)
+        shell: clap_complete::Shell,
+    },
 }
 
 /// Arguments for the `totp` subcommand.
