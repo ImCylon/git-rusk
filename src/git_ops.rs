@@ -154,28 +154,33 @@ pub fn get_current_branch() -> Result<String, GitHookError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::path::PathBuf;
 
+    /// Restores CWD on drop. Use with `#[serial]` for any test that mutates CWD.
     struct DirGuard {
         original: PathBuf,
     }
 
     impl DirGuard {
-        fn new() -> Self {
-            let original = std::env::current_dir().unwrap();
+        fn enter(path: &Path) -> Self {
+            let original = std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+            std::env::set_current_dir(path).expect("set_current_dir");
             Self { original }
         }
     }
 
     impl Drop for DirGuard {
         fn drop(&mut self) {
-            let _ = std::env::set_current_dir(&self.original);
+            if std::env::set_current_dir(&self.original).is_err() {
+                let _ = std::env::set_current_dir(env!("CARGO_MANIFEST_DIR"));
+            }
         }
     }
 
     #[test]
     fn test_init_creates_git_dir() {
-        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         assert!(!is_git_repo(path));
@@ -185,7 +190,6 @@ mod tests {
 
     #[test]
     fn test_ensure_initial_commit_creates_exactly_one() {
-        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         init_repo(path).unwrap();
@@ -200,7 +204,6 @@ mod tests {
 
     #[test]
     fn test_ensure_branch_and_checkout() {
-        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         init_repo(path).unwrap();
@@ -212,30 +215,27 @@ mod tests {
 
     #[test]
     fn test_get_current_branch() {
-        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         init_repo(path).unwrap();
         ensure_initial_commit(path).unwrap();
         ensure_branch(path, "feature/test").unwrap();
         checkout(path, "feature/test").unwrap();
+        // Path-based API — no CWD mutation required.
         assert_eq!(current_branch(path).unwrap(), "feature/test");
     }
 
     #[test]
+    #[serial]
     fn test_get_current_branch_detached_head() {
-        let _guard = DirGuard::new();
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         init_repo(path).unwrap();
         ensure_initial_commit(path).unwrap();
 
-        std::env::set_current_dir(path).unwrap();
-        let output = Command::new("git")
-            .args(["checkout", "--detach"])
-            .output()
-            .unwrap();
-        assert!(output.status.success(), "git checkout --detach failed");
+        // Detach via path-based checkout (no CWD), then enter for get_current_branch().
+        git(path, &["checkout", "--detach"]).unwrap();
+        let _dir = DirGuard::enter(path);
 
         assert_eq!(get_current_branch().unwrap(), "HEAD");
     }

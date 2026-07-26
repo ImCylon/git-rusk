@@ -41,24 +41,24 @@
           # mutate CWD / git state and are non-deterministic inside the pure Nix sandbox.
           doCheck = false;
 
-          # Runtime dependency: the tool shells out to git for init/branch/checkout ops.
-          # Must be in buildInputs (NOT nativeBuildInputs) so it propagates into the
-          # nix profile install closure on pristine systems (RESEARCH.md §Pitfall 4).
+          # Runtime: git is required (the tool shells out for init/branch/checkout).
+          # buildInputs alone does NOT put git on PATH in the binary's runtime
+          # closure — wrapProgram injects it so `nix profile install` / `nix run`
+          # work on pristine NixOS hosts without system-wide git.
           buildInputs = [ pkgs.git ];
 
-          # Build-time hook: provides the `installShellCompletion` shell function used
-          # in postInstall to place completion scripts in the per-shell share/ dirs.
-          nativeBuildInputs = [ pkgs.installShellFiles ];
+          # installShellFiles → installShellCompletion; makeWrapper → wrapProgram.
+          nativeBuildInputs = [ pkgs.installShellFiles pkgs.makeWrapper ];
 
-          # Harvest completions from the freshly-built binary (DIST-02 ↔ DIST-03 coupling).
-          # Process substitution <(...) runs the binary and pipes stdout into
-          # installShellCompletion, which writes each script to the right per-shell
-          # directory under $out/share/.
+          # 1) Harvest completions from the unwrapped binary (DIST-02 ↔ DIST-03).
+          # 2) Wrap the binary so `git` is always on PATH at runtime.
           postInstall = ''
             installShellCompletion --cmd git-rusk \
               --bash <($out/bin/git-rusk completions bash) \
               --zsh  <($out/bin/git-rusk completions zsh) \
               --fish <($out/bin/git-rusk completions fish)
+            wrapProgram $out/bin/git-rusk \
+              --prefix PATH : ${lib.makeBinPath [ pkgs.git ]}
           '';
 
           meta = with pkgs.lib; {

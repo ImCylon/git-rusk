@@ -600,8 +600,10 @@ allowed = ["dev"]
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_load_none_cwd_auto_discovery() {
-        let original_dir = std::env::current_dir().unwrap();
+        let original_dir = std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")));
         let tmp_dir = tempfile::tempdir().unwrap();
         let config_path = tmp_dir.path().join(".git-rusk.toml");
         let toml_content = r#"
@@ -614,7 +616,9 @@ default_branch = "feature"
         let config = Config::load(None).unwrap();
         assert_eq!(config.branches.allowed, vec!["feature".to_string()]);
         assert_eq!(config.branches.default_branch, "feature");
-        std::env::set_current_dir(&original_dir).unwrap();
+        if std::env::set_current_dir(&original_dir).is_err() {
+            let _ = std::env::set_current_dir(env!("CARGO_MANIFEST_DIR"));
+        }
     }
 
     #[test]

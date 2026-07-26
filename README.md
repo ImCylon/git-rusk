@@ -6,13 +6,15 @@ A single-binary Rust CLI that initializes git repositories with branch protectio
 
 ## Installation
 
-git-rusk is a Rust binary with no runtime dependencies beyond the system `git`. Build it from source with Cargo, or install it via the NixOS flake.
+git-rusk is a Rust binary that shells out to `git`. Build it from source with Cargo, or install it via the NixOS flake.
 
 ```bash
 # Option 1 — Cargo (build and install the binary from this repo)
+# Requires system `git` on PATH.
 cargo install --path .
 
 # Option 2 — NixOS (flakes must be enabled)
+# The flake wraps the binary so `git` is on PATH (no system-wide git required).
 nix profile install .     # install into your user profile
 # or run once without installing:
 nix run .

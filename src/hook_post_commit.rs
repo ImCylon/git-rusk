@@ -20,10 +20,7 @@ pub fn run(config: &Config) -> Result<(), GitHookError> {
     if let Err(e) = git_ops::checkout(Path::new("."), default_branch) {
         eprintln!("Warning: auto-return to {} failed: {}", default_branch, e);
         eprintln!("You are still on protected branch: {}", current_branch);
-        return Err(GitHookError::AutoReturnFailed(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            e,
-        )));
+        return Err(GitHookError::AutoReturnFailed(std::io::Error::other(e)));
     }
 
     eprintln!(
@@ -37,7 +34,31 @@ pub fn run(config: &Config) -> Result<(), GitHookError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::env;
+    use std::path::PathBuf;
+
+    /// Restores CWD on drop so parallel/serial tests cannot leave a poisoned cwd.
+    struct DirGuard {
+        original: PathBuf,
+    }
+
+    impl DirGuard {
+        fn enter(path: &Path) -> Self {
+            let original = env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+            env::set_current_dir(path).expect("set_current_dir");
+            Self { original }
+        }
+    }
+
+    impl Drop for DirGuard {
+        fn drop(&mut self) {
+            if env::set_current_dir(&self.original).is_err() {
+                let _ = env::set_current_dir(env!("CARGO_MANIFEST_DIR"));
+            }
+        }
+    }
 
     struct EnvGuard {
         old_value: Option<String>,
@@ -62,11 +83,17 @@ mod tests {
         }
     }
 
-    fn create_test_repo() -> tempfile::TempDir {
+    /// Isolated repo with an explicit default branch and a protected working branch.
+    ///
+    /// Avoids hardcoding `master`/`main` — `git init` default differs across systems.
+    fn create_fixture_repo(default_branch: &str, working_branch: &str) -> tempfile::TempDir {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path();
         git_ops::init_repo(path).unwrap();
         git_ops::ensure_initial_commit(path).unwrap();
+        git_ops::ensure_branch(path, default_branch).unwrap();
+        git_ops::ensure_branch(path, working_branch).unwrap();
+        git_ops::checkout(path, working_branch).unwrap();
         tmp
     }
 
@@ -78,88 +105,72 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_run_does_nothing_on_allowed_branch() {
         let config = setup_test_config(vec!["feature".to_string()], "main".to_string());
-        let _guard = EnvGuard::new("XDG_CONFIG_HOME");
+        let _env = EnvGuard::new("XDG_CONFIG_HOME");
         env::set_var("XDG_CONFIG_HOME", "/tmp/test_post_commit_allowed");
 
-        let tmp = create_test_repo();
-        let path = tmp.path();
-        git_ops::ensure_branch(path, "feature").unwrap();
-        git_ops::checkout(path, "feature").unwrap();
+        let tmp = create_fixture_repo("main", "feature");
+        let _dir = DirGuard::enter(tmp.path());
 
-        let original_dir = env::current_dir().unwrap();
-        env::set_current_dir(path).unwrap();
         let result = run(&config);
-        env::set_current_dir(original_dir).unwrap();
-
         assert!(result.is_ok());
+        assert_eq!(git_ops::get_current_branch().unwrap(), "feature");
     }
 
     #[test]
+    #[serial]
     fn test_run_does_nothing_on_default_branch() {
+        // Allowed list does not include development — but current branch IS the
+        // default branch, so auto-return must still be a no-op.
         let config = setup_test_config(vec!["main".to_string()], "development".to_string());
-        let _guard = EnvGuard::new("XDG_CONFIG_HOME");
+        let _env = EnvGuard::new("XDG_CONFIG_HOME");
         env::set_var("XDG_CONFIG_HOME", "/tmp/test_post_commit_default");
 
-        let tmp = create_test_repo();
-        let path = tmp.path();
-        git_ops::ensure_branch(path, "development").unwrap();
-        git_ops::checkout(path, "development").unwrap();
+        let tmp = create_fixture_repo("main", "development");
+        let _dir = DirGuard::enter(tmp.path());
 
-        let original_dir = env::current_dir().unwrap();
-        env::set_current_dir(path).unwrap();
         let result = run(&config);
-        env::set_current_dir(original_dir).unwrap();
-        drop(tmp);
-
         assert!(result.is_ok());
+        assert_eq!(git_ops::get_current_branch().unwrap(), "development");
     }
 
     #[test]
+    #[serial]
     fn test_run_auto_checkouts_to_default_branch() {
         let config = setup_test_config(vec!["development".to_string()], "development".to_string());
-        let _guard = EnvGuard::new("XDG_CONFIG_HOME");
+        let _env = EnvGuard::new("XDG_CONFIG_HOME");
         env::set_var("XDG_CONFIG_HOME", "/tmp/test_post_commit_auto_return");
 
-        let tmp = create_test_repo();
+        // Working branch is protected (not in allowed); default exists as a real ref.
+        let tmp = create_fixture_repo("development", "protected");
         let path = tmp.path();
-        git_ops::ensure_branch(path, "development").unwrap();
-        git_ops::checkout(path, "master").unwrap();
+        let _dir = DirGuard::enter(path);
 
-        let original_dir = env::current_dir().unwrap();
-        env::set_current_dir(path).unwrap();
+        assert_eq!(git_ops::get_current_branch().unwrap(), "protected");
         let result = run(&config);
-        assert!(result.is_ok());
-
-        let current = git_ops::current_branch(path).unwrap();
-        assert_eq!(current, "development");
-
-        env::set_current_dir(original_dir).ok();
-        drop(tmp);
+        assert!(result.is_ok(), "auto-return should succeed: {result:?}");
+        assert_eq!(git_ops::get_current_branch().unwrap(), "development");
     }
 
     #[test]
+    #[serial]
     fn test_run_handles_checkout_failure_gracefully() {
         let config = setup_test_config(vec!["development".to_string()], "nonexistent".to_string());
-        let _guard = EnvGuard::new("XDG_CONFIG_HOME");
+        let _env = EnvGuard::new("XDG_CONFIG_HOME");
         env::set_var("XDG_CONFIG_HOME", "/tmp/test_post_commit_failure");
 
-        let tmp = create_test_repo();
-        let path = tmp.path();
-        git_ops::ensure_branch(path, "development").unwrap();
-        git_ops::checkout(path, "master").unwrap();
+        let tmp = create_fixture_repo("development", "protected");
+        let _dir = DirGuard::enter(tmp.path());
 
-        let original_dir = env::current_dir().unwrap();
-        env::set_current_dir(path).unwrap();
         let result = run(&config);
         assert!(result.is_err());
         match result {
             Err(GitHookError::AutoReturnFailed(_)) => (),
-            _ => panic!("Expected AutoReturnFailed error"),
+            other => panic!("Expected AutoReturnFailed error, got {other:?}"),
         }
-
-        env::set_current_dir(original_dir).ok();
-        drop(tmp);
+        // Still on the protected branch after failed auto-return
+        assert_eq!(git_ops::get_current_branch().unwrap(), "protected");
     }
 }
