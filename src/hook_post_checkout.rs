@@ -26,7 +26,14 @@ pub fn run(
             &config.branches.allowed,
         )
     {
-        totp::verify_from_env(&config.totp)?;
+        if let Err(e) = totp::verify_from_env(&config.totp) {
+            let _ = std::process::Command::new("git")
+                .args(["checkout", &config.branches.default_branch])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+            return Err(e);
+        }
     }
 
     Ok(())
